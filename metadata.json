@@ -1,0 +1,8 @@
+{
+  "name": "KantinCep — Akıllı Okul Kantini ve Sosyal Dayanışma Platformu",
+  "description": "Veliler için akıllı teneffüs ön sipariş sistemi ve ihtiyaç sahibi öğrenciler için Dayanışma Havuzu & Eğitime Destek platformu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

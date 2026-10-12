@@ -1,0 +1,1117 @@
+{
+  "users": [
+    {
+      "id": "user-parent-1",
+      "fullName": "Ayşe Yılmaz",
+      "email": "veli@kantincep.com",
+      "role": "parent",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "phone": "0555 123 45 67",
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "user-canteen-1",
+      "fullName": "Mehmet Usta",
+      "email": "kantin@kantincep.com",
+      "role": "canteen",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "phone": "0532 987 65 43",
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "user-admin-1",
+      "fullName": "Kemal Öztürk (Okul Müdürü)",
+      "email": "yonetici@kantincep.com",
+      "role": "admin",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "phone": "0505 456 78 90",
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "user-1791834806184-5zq3",
+      "fullName": "Test Veli Ayşe",
+      "email": "test.veli.1791834806146@kantincep.com",
+      "role": "parent",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "createdAt": "2026-10-12T19:53:26.184Z",
+      "updatedAt": "2026-10-12T19:53:26.184Z"
+    }
+  ],
+  "schools": [
+    {
+      "id": "school-1",
+      "name": "Atatürk İlkokulu ve Ortaokulu",
+      "address": "Meşrutiyet Cad. No:44 Çankaya / Ankara",
+      "timezone": "Europe/Istanbul",
+      "activeStatus": true
+    }
+  ],
+  "students": [
+    {
+      "id": "student-1",
+      "parentUserId": "user-parent-1",
+      "schoolId": "school-1",
+      "fullName": "Ali Yılmaz",
+      "grade": "4. Sınıf",
+      "classroom": "4-B",
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "student-2",
+      "parentUserId": "user-parent-1",
+      "schoolId": "school-1",
+      "fullName": "Zeynep Yılmaz",
+      "grade": "2. Sınıf",
+      "classroom": "2-A",
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "student-1791834806200-kxwk",
+      "parentUserId": "user-1791834806184-5zq3",
+      "schoolId": "school-1",
+      "fullName": "Barış Test",
+      "grade": "3. Sınıf",
+      "classroom": "3-C",
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:53:26.200Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-1",
+      "schoolId": "school-1",
+      "name": "Sandviç & Tost",
+      "productType": "food",
+      "activeStatus": true
+    },
+    {
+      "id": "cat-2",
+      "schoolId": "school-1",
+      "name": "Sıcak Yemek & Çorba",
+      "productType": "food",
+      "activeStatus": true
+    },
+    {
+      "id": "cat-3",
+      "schoolId": "school-1",
+      "name": "Sağlıklı Atıştırmalıklar",
+      "productType": "food",
+      "activeStatus": true
+    },
+    {
+      "id": "cat-4",
+      "schoolId": "school-1",
+      "name": "İçecekler",
+      "productType": "food",
+      "activeStatus": true
+    },
+    {
+      "id": "cat-5",
+      "schoolId": "school-1",
+      "name": "Temel Kırtasiye",
+      "productType": "stationery",
+      "activeStatus": true
+    },
+    {
+      "id": "cat-6",
+      "schoolId": "school-1",
+      "name": "Boya & Sanat Setleri",
+      "productType": "stationery",
+      "activeStatus": true
+    }
+  ],
+  "breaks": [
+    {
+      "id": "break-1",
+      "schoolId": "school-1",
+      "name": "1. Teneffüs",
+      "startTime": "09:40",
+      "endTime": "09:55",
+      "activeStatus": true,
+      "orderDeadlineMinutesBefore": 15
+    },
+    {
+      "id": "break-2",
+      "schoolId": "school-1",
+      "name": "2. Teneffüs",
+      "startTime": "10:35",
+      "endTime": "10:50",
+      "activeStatus": true,
+      "orderDeadlineMinutesBefore": 15
+    },
+    {
+      "id": "break-3",
+      "schoolId": "school-1",
+      "name": "Öğle Arası",
+      "startTime": "12:15",
+      "endTime": "13:00",
+      "activeStatus": true,
+      "orderDeadlineMinutesBefore": 30
+    },
+    {
+      "id": "break-4",
+      "schoolId": "school-1",
+      "name": "3. Teneffüs",
+      "startTime": "13:40",
+      "endTime": "13:55",
+      "activeStatus": true,
+      "orderDeadlineMinutesBefore": 15
+    },
+    {
+      "id": "break-5",
+      "schoolId": "school-1",
+      "name": "4. Teneffüs",
+      "startTime": "14:35",
+      "endTime": "14:50",
+      "activeStatus": true,
+      "orderDeadlineMinutesBefore": 15
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-1",
+      "schoolId": "school-1",
+      "name": "Kaşarlı Tost (Tam Buğday)",
+      "description": "Doğal kaşar peyniri ve tereyağı ile taze pişirilen sıcak tost.",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 45,
+      "stockQuantity": 40,
+      "imageUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Gluten",
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-2",
+      "schoolId": "school-1",
+      "name": "Karışık Tost (Sucuklu & Kaşarlı)",
+      "description": "Dana sucuk, kaşar peyniri ve taze domates sosuyla sıcak ekmekte.",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 55,
+      "stockQuantity": 35,
+      "imageUrl": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Gluten",
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-3",
+      "schoolId": "school-1",
+      "name": "Peynirli Soğuk Sandviç",
+      "description": "Ezine beyaz peynir, kıvırcık marul, taze salatalık ve domates.",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 50,
+      "stockQuantity": 25,
+      "imageUrl": "https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Gluten",
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-4",
+      "schoolId": "school-1",
+      "name": "Izgara Tavuklu Baget Sandviç",
+      "description": "Marine edilmiş ızgara tavuk göğsü, hafif hardallı sos ve marul.",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 65,
+      "stockQuantity": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1553909489-cd47e0907980?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Gluten",
+        "Hardal"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-5",
+      "schoolId": "school-1",
+      "name": "Süzme Mercimek Çorbası & Ekmek",
+      "description": "Geleneksel tereyağlı süzme mercimek çorbası, yanında taze çıtır ekmek dilimleri.",
+      "categoryId": "cat-2",
+      "productType": "food",
+      "price": 40,
+      "stockQuantity": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Gluten",
+        "Kereviz"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-6",
+      "schoolId": "school-1",
+      "name": "Fındık & Kuru Üzüm Enerji Paketi",
+      "description": "Kavrulmamış taze fındık ve çekirdeksiz kuru üzümden zengin ara öğün (50g).",
+      "categoryId": "cat-3",
+      "productType": "food",
+      "price": 30,
+      "stockQuantity": 50,
+      "imageUrl": "https://images.unsplash.com/photo-1508061252445-5350f3ab0a55?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Fındık/Sert Kabuklu Yemişler"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-7",
+      "schoolId": "school-1",
+      "name": "Taze Meyve Tabağı (Elma & Muz)",
+      "description": "Yıkanmış, dilimlenmeye hazır taze Amasya elması ve yerli Anamur muzu.",
+      "categoryId": "cat-3",
+      "productType": "food",
+      "price": 25,
+      "stockQuantity": 45,
+      "imageUrl": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-8",
+      "schoolId": "school-1",
+      "name": "Çilekli Doğal Yoğurt (150g)",
+      "description": "Probiyotik mayalı taze yoğurt ve gerçek çilek parçacıkları.",
+      "categoryId": "cat-3",
+      "productType": "food",
+      "price": 28,
+      "stockQuantity": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-9",
+      "schoolId": "school-1",
+      "name": "Taze Sıkma Portakal Suyu (250ml)",
+      "description": "Şekersiz, katkısız %100 Finike portakalından sipariş anında sıkılır.",
+      "categoryId": "cat-4",
+      "productType": "food",
+      "price": 35,
+      "stockQuantity": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1613478223719-2ab802602423?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-10",
+      "schoolId": "school-1",
+      "name": "Günlük Şişe Süt (200ml)",
+      "description": "Pastörize tam yağlı kalsiyum zengini çocuk sütü.",
+      "categoryId": "cat-4",
+      "productType": "food",
+      "price": 20,
+      "stockQuantity": 60,
+      "imageUrl": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-11",
+      "schoolId": "school-1",
+      "name": "Doğal Köy Ayranı (200ml)",
+      "description": "Az tuzlu, probiyotik yoğurttan serinletici geleneksel ayran.",
+      "categoryId": "cat-4",
+      "productType": "food",
+      "price": 18,
+      "stockQuantity": 50,
+      "imageUrl": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=500&auto=format&fit=crop&q=80",
+      "allergens": [
+        "Süt Ürünleri"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-12",
+      "schoolId": "school-1",
+      "name": "Doğal Kaynak Suyu (500ml)",
+      "description": "BPA içermeyen şişede saf doğal kaynak suyu.",
+      "categoryId": "cat-4",
+      "productType": "food",
+      "price": 10,
+      "stockQuantity": 100,
+      "imageUrl": "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-13",
+      "schoolId": "school-1",
+      "name": "Kareli Okul Defteri (80 Yaprak)",
+      "description": "1. Hamur kaliteli beyaz kağıt, tel dikişli, dayanıklı kapak.",
+      "categoryId": "cat-5",
+      "productType": "stationery",
+      "price": 35,
+      "stockQuantity": 60,
+      "imageUrl": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-14",
+      "schoolId": "school-1",
+      "name": "Çizgili Türkçe Defteri (80 Yaprak)",
+      "description": "Çizgili yazı defteri, A4 boyutunda, lekesiz parlak sayfalar.",
+      "categoryId": "cat-5",
+      "productType": "stationery",
+      "price": 35,
+      "stockQuantity": 50,
+      "imageUrl": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-15",
+      "schoolId": "school-1",
+      "name": "Kurşun Kalem Seti (3'lü HB)",
+      "description": "Ergonomik tutuşlu, kırılmaya dirençli grafit kurşun kalemler.",
+      "categoryId": "cat-5",
+      "productType": "stationery",
+      "price": 25,
+      "stockQuantity": 80,
+      "imageUrl": "https://images.unsplash.com/photo-1585336261026-7f0980fa2a9d?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-16",
+      "schoolId": "school-1",
+      "name": "Silgi & Kalemtıraş İkilisi",
+      "description": "Toz bırakmayan yumuşak sınav silgisi ve hazneli metal bıçaklı kalemtıraş.",
+      "categoryId": "cat-5",
+      "productType": "stationery",
+      "price": 20,
+      "stockQuantity": 70,
+      "imageUrl": "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-17",
+      "schoolId": "school-1",
+      "name": "12'li Canlı Kuru Boya Seti",
+      "description": "Toksik madde içermeyen, yüksek pigmentli 12 renk ahşap kuru boya.",
+      "categoryId": "cat-6",
+      "productType": "stationery",
+      "price": 65,
+      "stockQuantity": 40,
+      "imageUrl": "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-18",
+      "schoolId": "school-1",
+      "name": "Fermuarlı Kumaş Kalem Kutusu",
+      "description": "Geniş hacimli, yıkanabilir kumaştan çok bölmeli şık kalemlik.",
+      "categoryId": "cat-6",
+      "productType": "stationery",
+      "price": 50,
+      "stockQuantity": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1585336261026-7f0980fa2a9d?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-19",
+      "schoolId": "school-1",
+      "name": "Kapsamlı Kırtasiye Başlangıç Paketi",
+      "description": "2 defter, kalem seti, boya seti, silgi, cetvel ve kalemlikten oluşan tam destek kiti.",
+      "categoryId": "cat-6",
+      "productType": "stationery",
+      "price": 190,
+      "stockQuantity": 25,
+      "imageUrl": "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=500&auto=format&fit=crop&q=80",
+      "allergens": [],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "prod-1791834806209-jin8",
+      "schoolId": "school-1",
+      "name": "Otomasyon Test Tostu",
+      "description": "Test tostu",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 48,
+      "stockQuantity": 23,
+      "imageUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500",
+      "allergens": [
+        "Gluten"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-12T19:53:26.209Z",
+      "updatedAt": "2026-10-12T19:53:26.293Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "order-1791834806284-7z1w",
+      "orderNumber": "KC-20261012-111",
+      "parentUserId": "user-1791834806184-5zq3",
+      "studentId": "student-1791834806200-kxwk",
+      "studentNameSnapshot": "Barış Test",
+      "studentClassSnapshot": "3. Sınıf / 3-C",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "cancelled",
+      "subtotal": 144,
+      "totalAmount": 144,
+      "note": "",
+      "deliveryCode": "2739",
+      "isVerifiedDelivery": false,
+      "createdAt": "2026-10-12T19:53:26.284Z",
+      "updatedAt": "2026-10-12T19:53:26.293Z",
+      "items": [
+        {
+          "id": "item-1791834806284-hpbt",
+          "orderId": "order-1791834806284-7z1w",
+          "productId": "prod-1791834806209-jin8",
+          "productNameSnapshot": "Otomasyon Test Tostu",
+          "unitPriceSnapshot": 48,
+          "quantity": 3,
+          "lineTotal": 144
+        }
+      ]
+    },
+    {
+      "id": "order-1791834806242-eyqo",
+      "orderNumber": "KC-20261012-872",
+      "parentUserId": "user-1791834806184-5zq3",
+      "studentId": "student-1791834806200-kxwk",
+      "studentNameSnapshot": "Barış Test",
+      "studentClassSnapshot": "3. Sınıf / 3-C",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "delivered",
+      "subtotal": 96,
+      "totalAmount": 96,
+      "note": "Çok sıcak olsun.",
+      "deliveryCode": "3861",
+      "isVerifiedDelivery": true,
+      "createdAt": "2026-10-12T19:53:26.242Z",
+      "updatedAt": "2026-10-12T19:53:26.272Z",
+      "items": [
+        {
+          "id": "item-1791834806242-1hwe",
+          "orderId": "order-1791834806242-eyqo",
+          "productId": "prod-1791834806209-jin8",
+          "productNameSnapshot": "Otomasyon Test Tostu",
+          "unitPriceSnapshot": 48,
+          "quantity": 2,
+          "lineTotal": 96
+        }
+      ]
+    },
+    {
+      "id": "order-sample-1",
+      "orderNumber": "KC-20261012-001",
+      "parentUserId": "user-parent-1",
+      "studentId": "student-1",
+      "studentNameSnapshot": "Ali Yılmaz",
+      "studentClassSnapshot": "4-B",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-2",
+      "breakNameSnapshot": "2. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "preparing",
+      "subtotal": 63,
+      "totalAmount": 63,
+      "note": "Tost sıcak olsun lütfen, teşekkürler.",
+      "deliveryCode": "7492",
+      "isVerifiedDelivery": false,
+      "createdAt": "2026-10-12T18:26:41.449Z",
+      "updatedAt": "2026-10-12T18:56:41.449Z",
+      "items": [
+        {
+          "id": "item-1",
+          "orderId": "order-sample-1",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 1,
+          "lineTotal": 45
+        },
+        {
+          "id": "item-2",
+          "orderId": "order-sample-1",
+          "productId": "prod-11",
+          "productNameSnapshot": "Doğal Köy Ayranı (200ml)",
+          "unitPriceSnapshot": 18,
+          "quantity": 1,
+          "lineTotal": 18
+        }
+      ]
+    },
+    {
+      "id": "order-sample-2",
+      "orderNumber": "KC-20261012-002",
+      "parentUserId": "user-parent-1",
+      "studentId": "student-2",
+      "studentNameSnapshot": "Zeynep Yılmaz",
+      "studentClassSnapshot": "2-A",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "delivered",
+      "subtotal": 45,
+      "totalAmount": 45,
+      "note": "",
+      "deliveryCode": "3180",
+      "isVerifiedDelivery": true,
+      "createdAt": "2026-10-12T17:26:41.449Z",
+      "updatedAt": "2026-10-12T18:26:41.449Z",
+      "items": [
+        {
+          "id": "item-3",
+          "orderId": "order-sample-2",
+          "productId": "prod-7",
+          "productNameSnapshot": "Taze Meyve Tabağı (Elma & Muz)",
+          "unitPriceSnapshot": 25,
+          "quantity": 1,
+          "lineTotal": 25
+        },
+        {
+          "id": "item-4",
+          "orderId": "order-sample-2",
+          "productId": "prod-10",
+          "productNameSnapshot": "Günlük Şişe Süt (200ml)",
+          "unitPriceSnapshot": 20,
+          "quantity": 1,
+          "lineTotal": 20
+        }
+      ]
+    }
+  ],
+  "donations": [
+    {
+      "id": "don-1791834806301-oc8e",
+      "donationNumber": "DY-20261012-494",
+      "donorUserId": "user-1791834806184-5zq3",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "food_pool",
+      "paymentStatus": "paid",
+      "totalAmount": 90,
+      "note": "Afiyet olsun.",
+      "createdAt": "2026-10-12T19:53:26.301Z",
+      "items": [
+        {
+          "id": "don-item-1791834806301-vgpm",
+          "donationId": "don-1791834806301-oc8e",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 2,
+          "allocatedQuantity": 1,
+          "deliveredQuantity": 1,
+          "remainingQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "donation-sample-1",
+      "donationNumber": "DY-20261012-001",
+      "donorUserId": "user-parent-1",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "food_pool",
+      "paymentStatus": "paid",
+      "totalAmount": 315,
+      "note": "Geleceğimiz olan yavrularımıza afiyet olsun.",
+      "createdAt": "2026-10-11T19:26:41.449Z",
+      "items": [
+        {
+          "id": "don-item-1",
+          "donationId": "donation-sample-1",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 5,
+          "allocatedQuantity": 3,
+          "deliveredQuantity": 3,
+          "remainingQuantity": 2
+        },
+        {
+          "id": "don-item-2",
+          "donationId": "donation-sample-1",
+          "productId": "prod-11",
+          "productNameSnapshot": "Doğal Köy Ayranı (200ml)",
+          "unitPriceSnapshot": 18,
+          "quantity": 5,
+          "allocatedQuantity": 3,
+          "deliveredQuantity": 3,
+          "remainingQuantity": 2
+        }
+      ]
+    },
+    {
+      "id": "donation-sample-2",
+      "donationNumber": "DY-20261012-002",
+      "donorUserId": "user-parent-1",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "education_support",
+      "paymentStatus": "paid",
+      "totalAmount": 280,
+      "note": "Kırtasiye desteği",
+      "createdAt": "2026-10-12T07:26:41.449Z",
+      "items": [
+        {
+          "id": "don-item-3",
+          "donationId": "donation-sample-2",
+          "productId": "prod-13",
+          "productNameSnapshot": "Kareli Okul Defteri (80 Yaprak)",
+          "unitPriceSnapshot": 35,
+          "quantity": 4,
+          "allocatedQuantity": 2,
+          "deliveredQuantity": 2,
+          "remainingQuantity": 2
+        },
+        {
+          "id": "don-item-4",
+          "donationId": "donation-sample-2",
+          "productId": "prod-15",
+          "productNameSnapshot": "Kurşun Kalem Seti (3'lü HB)",
+          "unitPriceSnapshot": 25,
+          "quantity": 4,
+          "allocatedQuantity": 1,
+          "deliveredQuantity": 1,
+          "remainingQuantity": 3
+        }
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-1",
+      "targetId": "order-sample-1",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-982142",
+      "amount": 63,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "createdAt": "2026-10-12T19:26:41.449Z",
+      "updatedAt": "2026-10-12T19:26:41.449Z"
+    },
+    {
+      "id": "pay-1791834806252",
+      "targetId": "order-1791834806242-eyqo",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1791834806252-6295",
+      "amount": 96,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "rawResponse": "APPROVED: **** **** **** 1234",
+      "createdAt": "2026-10-12T19:53:26.252Z",
+      "updatedAt": "2026-10-12T19:53:26.252Z"
+    },
+    {
+      "id": "pay-1791834806288",
+      "targetId": "order-1791834806284-7z1w",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1791834806288-2801",
+      "amount": 144,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "rawResponse": "APPROVED: **** **** **** 1234",
+      "createdAt": "2026-10-12T19:53:26.288Z",
+      "updatedAt": "2026-10-12T19:53:26.288Z"
+    },
+    {
+      "id": "pay-1791834806305",
+      "targetId": "don-1791834806301-oc8e",
+      "targetType": "donation",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1791834806305-5555",
+      "amount": 90,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "createdAt": "2026-10-12T19:53:26.305Z",
+      "updatedAt": "2026-10-12T19:53:26.305Z"
+    }
+  ],
+  "orderStatusHistory": [
+    {
+      "id": "hist-1",
+      "orderId": "order-sample-1",
+      "previousStatus": "pending_payment",
+      "newStatus": "paid_pending",
+      "changedByUserId": "user-parent-1",
+      "changedByName": "Ayşe Yılmaz (Veli)",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-12T18:26:41.449Z",
+      "note": "Ödeme başarıyla tamamlandı."
+    },
+    {
+      "id": "hist-2",
+      "orderId": "order-sample-1",
+      "previousStatus": "paid_pending",
+      "newStatus": "preparing",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta (Kantinci)",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-12T18:56:41.449Z",
+      "note": "Kantin mutfağında tost hazırlanmaya başlandı."
+    },
+    {
+      "id": "hist-1791834806259-4554",
+      "orderId": "order-1791834806242-eyqo",
+      "previousStatus": "paid_pending",
+      "newStatus": "preparing",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-12T19:53:26.259Z",
+      "note": "Durum paid_pending -> preparing olarak güncellendi."
+    },
+    {
+      "id": "hist-1791834806264-3ttx",
+      "orderId": "order-1791834806242-eyqo",
+      "previousStatus": "preparing",
+      "newStatus": "ready",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-12T19:53:26.264Z",
+      "note": "Durum preparing -> ready olarak güncellendi."
+    },
+    {
+      "id": "hist-1791834806272-9b5s",
+      "orderId": "order-1791834806242-eyqo",
+      "previousStatus": "ready",
+      "newStatus": "delivered",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-12T19:53:26.273Z",
+      "note": "Öğrenci teslimat koduyla doğrulandı."
+    },
+    {
+      "id": "hist-1791834806293-u23y",
+      "orderId": "order-1791834806284-7z1w",
+      "previousStatus": "paid_pending",
+      "newStatus": "cancelled",
+      "changedByUserId": "user-1791834806184-5zq3",
+      "changedByName": "Test Veli Ayşe",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-12T19:53:26.293Z",
+      "note": "Durum paid_pending -> cancelled olarak güncellendi."
+    }
+  ],
+  "donationDistributions": [
+    {
+      "id": "dist-1791834806310-n6e1",
+      "schoolId": "school-1",
+      "donationItemId": "don-item-1791834806301-vgpm",
+      "productId": "prod-1",
+      "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+      "donationType": "food_pool",
+      "quantity": 1,
+      "authorizedStaffId": "user-canteen-1",
+      "authorizedStaffName": "Mehmet Usta (Kantin Görevlisi)",
+      "notes": "Öğrenciye gizlilikle teslim edildi.",
+      "distributedAt": "2026-10-12T19:53:26.310Z"
+    },
+    {
+      "id": "dist-1",
+      "schoolId": "school-1",
+      "donationItemId": "don-item-1",
+      "productId": "prod-1",
+      "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+      "donationType": "food_pool",
+      "quantity": 3,
+      "authorizedStaffId": "user-admin-1",
+      "authorizedStaffName": "Kemal Öztürk (Okul İdaresi)",
+      "notes": "Okul rehberlik ve psikolojik danışmanlık servisi koordinasyonuyla gizlilik esasıyla teslim edildi.",
+      "distributedAt": "2026-10-12T13:53:21.449Z"
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "log-1791834806310-homc",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "DONATION_DISTRIBUTED",
+      "entityType": "donation",
+      "entityId": "don-item-1791834806301-vgpm",
+      "details": "1 adet Kaşarlı Tost (Tam Buğday) dağıtıldı. Yetkili: Mehmet Usta",
+      "timestamp": "2026-10-12T19:53:26.310Z"
+    },
+    {
+      "id": "log-1791834806294-8ztp",
+      "actorUserId": "user-1791834806184-5zq3",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1791834806284-7z1w",
+      "details": "KC-20261012-111 durumu cancelled -> cancelled yapıldı.",
+      "timestamp": "2026-10-12T19:53:26.294Z"
+    },
+    {
+      "id": "log-1791834806285-x2e9",
+      "actorUserId": "user-1791834806184-5zq3",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1791834806284-7z1w",
+      "details": "Sipariş oluşturuldu: KC-20261012-111 (Barış Test, ₺144)",
+      "timestamp": "2026-10-12T19:53:26.285Z"
+    },
+    {
+      "id": "log-1791834806273-p7el",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_DELIVERED_VERIFIED",
+      "entityType": "order",
+      "entityId": "order-1791834806242-eyqo",
+      "details": "Sipariş teslimatı PIN koduyla doğrulandı: KC-20261012-872",
+      "timestamp": "2026-10-12T19:53:26.273Z"
+    },
+    {
+      "id": "log-1791834806265-i0z5",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1791834806242-eyqo",
+      "details": "KC-20261012-872 durumu ready -> ready yapıldı.",
+      "timestamp": "2026-10-12T19:53:26.265Z"
+    },
+    {
+      "id": "log-1791834806260-s795",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1791834806242-eyqo",
+      "details": "KC-20261012-872 durumu preparing -> preparing yapıldı.",
+      "timestamp": "2026-10-12T19:53:26.260Z"
+    },
+    {
+      "id": "log-1791834806242-qus4",
+      "actorUserId": "user-1791834806184-5zq3",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1791834806242-eyqo",
+      "details": "Sipariş oluşturuldu: KC-20261012-872 (Barış Test, ₺96)",
+      "timestamp": "2026-10-12T19:53:26.242Z"
+    },
+    {
+      "id": "log-1791834806217-v24h",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "PRODUCT_UPDATE",
+      "entityType": "product",
+      "entityId": "prod-1791834806209-jin8",
+      "details": "Ürün güncellendi: Otomasyon Test Tostu",
+      "timestamp": "2026-10-12T19:53:26.217Z"
+    },
+    {
+      "id": "log-1791834806209-agel",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "PRODUCT_CREATE",
+      "entityType": "product",
+      "entityId": "prod-1791834806209-jin8",
+      "details": "Yeni ürün eklendi: Otomasyon Test Tostu (₺45, Stok: 20)",
+      "timestamp": "2026-10-12T19:53:26.209Z"
+    },
+    {
+      "id": "log-1791834806185-j1jc",
+      "actorUserId": "user-1791834806184-5zq3",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "USER_REGISTER",
+      "entityType": "user",
+      "entityId": "user-1791834806184-5zq3",
+      "details": "Yeni veli kaydı oluşturuldu: test.veli.1791834806146@kantincep.com",
+      "timestamp": "2026-10-12T19:53:26.185Z"
+    },
+    {
+      "id": "log-1",
+      "actorUserId": "system",
+      "actorName": "Sistem",
+      "actorRole": "system",
+      "action": "SYSTEM_BOOTSTRAP",
+      "entityType": "database",
+      "entityId": "init",
+      "details": "KantinCep veritabanı ilk kurulumu başarıyla tamamlandı.",
+      "timestamp": "2026-10-12T19:26:41.449Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1791834806305-xk6w",
+      "userId": "user-1791834806184-5zq3",
+      "title": "İyiliğiniz İçin Teşekkürler! 🌟",
+      "message": "₺90 tutarındaki Dayanışma Havuzu bağışınız alındı.",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.305Z"
+    },
+    {
+      "id": "notif-1791834806293-esqa",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Sipariş İptal Edildi ❌",
+      "message": "KC-20261012-111 numaralı sipariş iptal edildi. İade tutarı bakiyenize/kartınıza yansıtılacaktır.",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806284-7z1w",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.293Z"
+    },
+    {
+      "id": "notif-1791834806289-rcu7",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Ödeme Başarılı! 💳",
+      "message": "KC-20261012-111 numaralı siparişinizin ₺144 tutarındaki ödemesi alındı. Kantin sırasına iletildi.",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806284-7z1w",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.289Z"
+    },
+    {
+      "id": "notif-1791834806273-d1xr",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Sipariş Teslim Edildi ✅",
+      "message": "Barış Test siparişini kantinden teslim aldı. Afiyet olsun!",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806242-eyqo",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.273Z"
+    },
+    {
+      "id": "notif-1791834806264-fbs9",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Sipariş Hazır! 🔔",
+      "message": "KC-20261012-872 hazırlandı! Teneffüste kantinden teslim kodu \"3861\" ile teslim alınabilir.",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806242-eyqo",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.264Z"
+    },
+    {
+      "id": "notif-1791834806259-vcos",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Sipariş Hazırlanıyor 🥪",
+      "message": "Barış Test için KC-20261012-872 numaralı sipariş kantinde hazırlanmaya başlandı.",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806242-eyqo",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.259Z"
+    },
+    {
+      "id": "notif-1791834806252-jc5e",
+      "userId": "user-1791834806184-5zq3",
+      "title": "Ödeme Başarılı! 💳",
+      "message": "KC-20261012-872 numaralı siparişinizin ₺96 tutarındaki ödemesi alındı. Kantin sırasına iletildi.",
+      "type": "order",
+      "linkUrl": "/orders/order-1791834806242-eyqo",
+      "read": false,
+      "createdAt": "2026-10-12T19:53:26.252Z"
+    },
+    {
+      "id": "notif-1",
+      "userId": "user-parent-1",
+      "title": "Siparişiniz Hazırlanıyor 🥪",
+      "message": "Ali Yılmaz için verdiğiniz Kaşarlı Tost siparişi kantinde hazırlanmaya başlandı. Teslim kodu: 7492",
+      "type": "order",
+      "read": false,
+      "createdAt": "2026-10-12T18:56:41.449Z"
+    },
+    {
+      "id": "notif-2",
+      "userId": "user-parent-1",
+      "title": "Dayanışma Teşekkürü 💚",
+      "message": "Dayanışma Havuzuna yaptığınız katkı okul idaresi aracılığıyla ihtiyaç sahibi öğrencimize ulaştırıldı.",
+      "type": "donation",
+      "read": true,
+      "createdAt": "2026-10-12T15:16:41.449Z"
+    }
+  ]
+}
