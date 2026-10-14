@@ -12,11 +12,13 @@ import {
   ShieldCheck,
   AlertCircle,
   GraduationCap,
+  Store,
 } from 'lucide-react';
 import { Product, Category, Student } from '../types.ts';
 import { api } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { StudentModal } from '../components/modals/StudentModal.tsx';
+import { AuthModal } from '../components/modals/AuthModal.tsx';
 
 interface ParentMenuViewProps {
   onOpenCart: () => void;
@@ -39,6 +41,10 @@ export const ParentMenuView: React.FC<ParentMenuViewProps> = ({ onOpenCart, onNa
 
   // Student modal
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+
+  // Auth modal
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalRole, setAuthModalRole] = useState<'teacher' | 'manager' | 'canteen' | 'parent'>('teacher');
 
   useEffect(() => {
     async function loadData() {
@@ -127,6 +133,96 @@ export const ParentMenuView: React.FC<ParentMenuViewProps> = ({ onOpenCart, onNa
 
         {/* Decorative background shape */}
         <div className="absolute right-0 bottom-0 translate-x-12 translate-y-12 w-96 h-96 rounded-full bg-emerald-600/10 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Kurumsal Portallar & Hızlı Erişim Kartları (Öğretmen Girişi, Müdür, Kantinci) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        {/* Öğretmen Girişi Kartı */}
+        <div className="bg-gradient-to-br from-blue-900 via-indigo-950 to-stone-900 text-white rounded-2xl p-4.5 border border-blue-800/80 shadow-xs flex flex-col justify-between space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                Yetkili Personel
+              </span>
+              <GraduationCap className="w-5 h-5 text-blue-300" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Öğretmen Girişi</h3>
+            <p className="text-[11px] text-blue-100/80 leading-relaxed">
+              Danışman öğretmenler için öğrenci ihtiyaç tanımlama, Dayanışma Havuzu & Eğitim Desteği ürün tahsisi ve 6 haneli tek kullanımlık ihtiyaç kodları yönetimi.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (user?.role === 'teacher') {
+                onNavigateTab('teacher_dashboard');
+              } else {
+                setAuthModalRole('teacher');
+                setIsAuthModalOpen(true);
+              }
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-blue-500 hover:bg-blue-400 text-stone-950 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            {user?.role === 'teacher' ? 'Danışman Paneline Git →' : 'Öğretmen Hesabıyla Giriş Yap →'}
+          </button>
+        </div>
+
+        {/* Kurum Müdürü Girişi Kartı */}
+        <div className="bg-gradient-to-br from-emerald-900 via-teal-950 to-stone-900 text-white rounded-2xl p-4.5 border border-emerald-800/80 shadow-xs flex flex-col justify-between space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                Okul Yönetimi
+              </span>
+              <ShieldCheck className="w-5 h-5 text-emerald-300" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Kurum Müdürü Girişi</h3>
+            <p className="text-[11px] text-emerald-100/80 leading-relaxed">
+              Öğretmen ve kantinci hesap yetkilendirme, geçici şifre oluşturma, dayanışma havuzu resmi denetimi ve işlem kayıtları.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (user?.role === 'manager') {
+                onNavigateTab('manager_dashboard');
+              } else {
+                setAuthModalRole('manager');
+                setIsAuthModalOpen(true);
+              }
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            {user?.role === 'manager' ? 'Müdür Paneline Git →' : 'Müdür Hesabıyla Giriş Yap →'}
+          </button>
+        </div>
+
+        {/* Kantin Görevlisi Kartı */}
+        <div className="bg-gradient-to-br from-amber-900 via-stone-900 to-amber-950 text-white rounded-2xl p-4.5 border border-amber-800/80 shadow-xs flex flex-col justify-between space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                İşletme Portalı
+              </span>
+              <Store className="w-5 h-5 text-amber-300" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Kantin Görevlisi Paneli</h3>
+            <p className="text-[11px] text-amber-100/80 leading-relaxed">
+              Teneffüs ziline ön sipariş hazırlama, stok kontrolü ve 6 haneli gizli ihtiyaç kodunu doğrulayarak ürünleri teslim etme.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (user?.role === 'canteen') {
+                onNavigateTab('canteen_orders');
+              } else {
+                setAuthModalRole('canteen');
+                setIsAuthModalOpen(true);
+              }
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            {user?.role === 'canteen' ? 'Kantin Paneline Git →' : 'Kantin Görevlisi Girişi →'}
+          </button>
+        </div>
       </div>
 
       {/* Student Selector Quick Banner */}
@@ -371,6 +467,13 @@ export const ParentMenuView: React.FC<ParentMenuViewProps> = ({ onOpenCart, onNa
         onSaved={newStud => {
           setStudents(prev => [...prev, newStud]);
         }}
+      />
+
+      {/* Auth Modal for Quick Access Cards */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialRole={authModalRole}
       />
     </div>
   );

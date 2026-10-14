@@ -202,6 +202,13 @@ export const api = {
   markNotificationRead: (id: string) => request<{ success: boolean }>(`/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request<{ success: boolean }>('/notifications/read-all', { method: 'POST' }),
 
+  // Password Change
+  changePassword: (payload: { currentPassword?: string; newPassword: string; newPasswordRepeat: string }) =>
+    request<{ success: boolean; message: string; user: User }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   // Admin
   getAdminUsers: () => request<{ users: any[] }>('/admin/users'),
   createAdminUser: (payload: { fullName: string; email: string; role: string; schoolId?: string }) =>
@@ -215,4 +222,80 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
   getAuditLogs: () => request<{ logs: AuditLog[] }>('/admin/audit-logs'),
+
+  // Manager (Kurum Müdürü)
+  getManagerTeachers: () => request<{ teachers: any[] }>('/manager/teachers'),
+  createManagerTeacher: (payload: { fullName: string; email: string; branch?: string; tempPassword?: string }) =>
+    request<{ success: boolean; teacher: any; user: any; tempPassword: string; message: string }>('/manager/teachers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateTeacherStatus: (id: string, status: string) =>
+    request<{ success: boolean; teacher: any }>(`/manager/teachers/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  resetTeacherPassword: (id: string) =>
+    request<{ success: boolean; tempPassword: string; message: string }>(`/manager/teachers/${id}/reset-password`, {
+      method: 'POST',
+    }),
+  getManagerCanteenUsers: () => request<{ canteens: any[] }>('/manager/canteen-users'),
+  createManagerCanteenUser: (payload: { fullName: string; email: string; canteenUnit?: string; tempPassword?: string }) =>
+    request<{ success: boolean; canteen: any; user: any; tempPassword: string; message: string }>('/manager/canteen-users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateCanteenUserStatus: (id: string, status: string) =>
+    request<{ success: boolean; canteen: any }>(`/manager/canteen-users/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  resetCanteenUserPassword: (id: string) =>
+    request<{ success: boolean; tempPassword: string; message: string }>(`/manager/canteen-users/${id}/reset-password`, {
+      method: 'POST',
+    }),
+  getManagerReports: () => request<{ reports: any }>('/manager/reports'),
+
+  // Teacher (Danışman Öğretmen)
+  getTeacherNeeds: () => request<{ needs: any[] }>('/teacher/needs'),
+  createStudentNeed: (payload: { studentReferenceId: string; studentName: string; grade: string; classroom: string; needType: string; needDescription?: string }) =>
+    request<{ success: boolean; need: any; needCode: string; message: string }>('/teacher/needs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  renewNeedCode: (id: string) =>
+    request<{ success: boolean; newCode: string; message: string }>(`/teacher/needs/${id}/renew-code`, {
+      method: 'POST',
+    }),
+  cancelStudentNeed: (id: string) =>
+    request<{ success: boolean; message: string }>(`/teacher/needs/${id}`, {
+      method: 'DELETE',
+    }),
+  getTeacherAvailableDonations: () =>
+    request<{ foodStock: any[]; stationeryStock: any[] }>('/teacher/available-donations'),
+  getTeacherAllocations: (type?: string) =>
+    request<{ allocations: any[] }>(`/teacher/allocations${type ? `?type=${type}` : ''}`),
+  createSupportAllocation: (payload: { studentNeedId: string; supportType: string; sourceType?: string; items: { productId: string; quantity: number }[]; justificationNote?: string; validUntil?: string }) =>
+    request<{ success: boolean; allocation: any; message: string }>('/teacher/allocations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  cancelSupportAllocation: (id: string, reason?: string) =>
+    request<{ success: boolean; message: string }>(`/teacher/allocations/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Canteen Support Delivery & Codes
+  getCanteenAllocations: () => request<{ allocations: any[] }>('/canteen/allocations'),
+  verifyNeedCode: (code: string) =>
+    request<{ success: boolean; allocations: any[]; pendingCount: number }>('/canteen/verify-need-code', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  deliverSupportAllocation: (id: string, verificationCode: string, notes?: string) =>
+    request<{ success: boolean; message: string; allocation: any }>(`/canteen/allocations/${id}/deliver`, {
+      method: 'POST',
+      body: JSON.stringify({ verificationCode, notes }),
+    }),
 };

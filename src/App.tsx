@@ -11,8 +11,12 @@ import { CanteenProductsView } from './views/CanteenProductsView.tsx';
 import { CanteenDonationsView } from './views/CanteenDonationsView.tsx';
 import { CanteenReportsView } from './views/CanteenReportsView.tsx';
 import { AdminDashboardView } from './views/AdminDashboardView.tsx';
+import { ManagerDashboardView } from './views/ManagerDashboardView.tsx';
+import { TeacherDashboardView } from './views/TeacherDashboardView.tsx';
+import { CanteenSupportView } from './views/CanteenSupportView.tsx';
 import { CartModal } from './components/modals/CartModal.tsx';
 import { KvkkModal } from './components/modals/KvkkModal.tsx';
+import { ForcePasswordChangeModal } from './components/modals/ForcePasswordChangeModal.tsx';
 import { ShieldCheck, Heart, Sparkles, School, UtensilsCrossed } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
@@ -25,6 +29,10 @@ const MainLayout: React.FC = () => {
   useEffect(() => {
     if (user?.role === 'canteen') {
       setActiveTab('canteen_orders');
+    } else if (user?.role === 'manager') {
+      setActiveTab('manager_dashboard');
+    } else if (user?.role === 'teacher') {
+      setActiveTab('teacher_dashboard');
     } else if (user?.role === 'admin') {
       setActiveTab('admin_dashboard');
     } else {
@@ -60,10 +68,25 @@ const MainLayout: React.FC = () => {
         {activeTab === 'canteen_products' && <CanteenProductsView />}
         {activeTab === 'canteen_donations' && <CanteenDonationsView />}
         {activeTab === 'canteen_reports' && <CanteenReportsView />}
+        {activeTab === 'canteen_support' && <CanteenSupportView />}
+
+        {/* Kurum Müdürü Screen */}
+        {activeTab === 'manager_dashboard' && <ManagerDashboardView />}
+
+        {/* Danışman Öğretmen Screen */}
+        {activeTab === 'teacher_dashboard' && <TeacherDashboardView />}
 
         {/* Yönetici Screen */}
         {activeTab === 'admin_dashboard' && <AdminDashboardView />}
       </main>
+
+      {/* Mandatory Password Change Modal for newly created accounts / temporary passwords */}
+      {user?.mustChangePassword && (
+        <ForcePasswordChangeModal
+          isOpen={true}
+          onSuccess={() => {}}
+        />
+      )}
 
       {/* Cart Drawer Modal */}
       <CartModal

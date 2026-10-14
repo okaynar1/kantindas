@@ -7,16 +7,33 @@ import { KvkkModal } from './KvkkModal.tsx';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'login' | 'register' | 'quick';
+  initialTab?: 'login' | 'register' | 'quick' | 'reset';
+  initialRole?: 'teacher' | 'manager' | 'canteen' | 'parent';
+  prefilledEmail?: string;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTab = 'login' }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialTab = 'login',
+  initialRole,
+  prefilledEmail,
+}) => {
   const { login, register, quickLogin, quickUsers } = useAuth();
   const [tab, setTab] = useState<'login' | 'register' | 'quick' | 'reset'>(initialTab);
 
   // Form states
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => {
+    if (prefilledEmail) return prefilledEmail;
+    if (initialRole === 'teacher') return 'ogretmen@kantincep.com';
+    if (initialRole === 'manager') return 'mudur@kantincep.com';
+    if (initialRole === 'canteen') return 'kantin@kantincep.com';
+    return '';
+  });
+  const [password, setPassword] = useState(() => {
+    if (initialRole) return '123456';
+    return '';
+  });
   const [fullName, setFullName] = useState('');
   const [passwordRepeat, setPasswordRepeat] = useState('');
   const [resetEmail, setResetEmail] = useState('');
@@ -185,11 +202,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
                 </p>
 
                 {quickUsers.map(u => {
-                  const roleConfig = {
-                    parent: { label: 'Veli Hesabı', desc: 'Ayşe Yılmaz (Ali ve Zeynep\'in Velisi)', badge: 'bg-emerald-100 text-emerald-800' },
-                    canteen: { label: 'Kantinci Paneli', desc: 'Mehmet Usta (Atatürk İlkokulu Kantini)', badge: 'bg-amber-100 text-amber-800' },
-                    admin: { label: 'Okul Yönetimi / Admin', desc: 'Kemal Öztürk (Okul Müdürü)', badge: 'bg-blue-100 text-blue-800' },
-                  }[u.role] || { label: u.role, desc: u.email, badge: 'bg-stone-100 text-stone-800' };
+                  const roleConfig: Record<string, { label: string; desc: string; badge: string }> = {
+                    manager: { label: 'Kurum Müdürü', desc: 'Kemal Öztürk (Okul Müdürü & Personel Yetkilendirme)', badge: 'bg-emerald-100 text-emerald-900 border border-emerald-300' },
+                    teacher: { label: 'Danışman Öğretmen', desc: 'Zehra Aydın (Rehberlik & İhtiyaç Sahibi Öğrenci Tahsisleri)', badge: 'bg-blue-100 text-blue-900 border border-blue-300' },
+                    canteen: { label: 'Kantinci Paneli', desc: 'Mehmet Usta (Atatürk İlkokulu Kantini)', badge: 'bg-amber-100 text-amber-900 border border-amber-300' },
+                    parent: { label: 'Veli Hesabı', desc: 'Ayşe Yılmaz (Ali ve Zeynep\'in Velisi)', badge: 'bg-teal-100 text-teal-900 border border-teal-300' },
+                    admin: { label: 'Sistem Yöneticisi', desc: 'Platform Altyapı ve Sistem Ayarları', badge: 'bg-purple-100 text-purple-900 border border-purple-300' },
+                  };
+
+                  const cfg = roleConfig[u.role] || { label: u.role, desc: u.email, badge: 'bg-stone-100 text-stone-800' };
 
                   return (
                     <button
@@ -201,12 +222,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-stone-900 text-sm">{u.fullName}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${roleConfig.badge}`}>
-                            {roleConfig.label}
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${cfg.badge}`}>
+                            {cfg.label}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 mt-0.5">{roleConfig.desc}</p>
-                        <p className="text-[11px] text-stone-400 mt-0.5">{u.email}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">{cfg.desc}</p>
+                        <p className="text-[11px] text-stone-400 mt-0.5 font-mono">{u.email}</p>
                       </div>
                       <span className="text-xs font-semibold text-emerald-700 group-hover:translate-x-1 transition-transform">
                         Seç →
@@ -220,6 +241,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             {/* TAB: Login */}
             {tab === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
+                {initialRole === 'teacher' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-start gap-2">
+                    <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Danışman Öğretmen Girişi</p>
+                      <p className="text-[11px] text-blue-800 mt-0.5">
+                        Kurum müdürünüz tarafından açılan hesap bilgileriyle giriş yapınız. Giriş sonrasında Danışman Öğretmen Paneline yönlendirileceksiniz.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {initialRole === 'manager' && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-start gap-2">
+                    <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Kurum Müdürü Girişi</p>
+                      <p className="text-[11px] text-emerald-800 mt-0.5">
+                        Okul yönetimi ve personel yetkilendirme paneline erişmek için müdür hesabı bilgilerinizle giriş yapınız.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">E-posta Adresi</label>
                   <div className="relative">
@@ -282,6 +326,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             {/* TAB: Register */}
             {tab === 'register' && (
               <form onSubmit={handleRegister} className="space-y-3.5">
+                <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 text-xs flex items-start gap-2">
+                  <Shield className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-stone-800">Yalnızca Veli Kayıtları</p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Danışman Öğretmen ve Kantin Görevlisi hesapları güvenlik kuralları gereği yalnızca Kurum Müdürü tarafından oluşturulur. Velilerimiz buradan doğrudan kayıt oluşturabilir.
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">Ad Soyad (Veli)</label>
                   <div className="relative">

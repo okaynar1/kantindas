@@ -505,7 +505,7 @@ export const AdminDashboardView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-stone-900">{b.name}</p>
                   <button
-                    onClick={() => handleDeleteBreak(b.id, b.name)}
+                    onClick={() => setConfirmModal({ type: 'break', id: b.id, name: b.name })}
                     className="text-stone-400 hover:text-red-600 p-0.5"
                     title="Sil"
                   >
@@ -614,7 +614,7 @@ export const AdminDashboardView: React.FC = () => {
                 </span>
               </div>
               <button
-                onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                onClick={() => setConfirmModal({ type: 'category', id: cat.id, name: cat.name })}
                 className="text-stone-400 hover:text-red-600 p-1 rounded"
                 title="Sil"
               >
@@ -653,6 +653,33 @@ export const AdminDashboardView: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-stone-200 space-y-4">
+            <h3 className="font-bold text-base text-stone-900">Silme Onayı</h3>
+            <p className="text-sm text-stone-600">
+              <span className="font-semibold text-stone-900">"{confirmModal.name}"</span> öğesini silmek istediğinize emin misiniz?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold hover:bg-stone-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={executeConfirmDelete}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-sm cursor-pointer"
+              >
+                Evet, Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

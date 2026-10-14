@@ -16,6 +16,8 @@ import {
   School,
   Check,
   Info,
+  PackageCheck,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { KvkkModal } from './modals/KvkkModal.tsx';
@@ -183,6 +185,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
 
                   <button
+                    onClick={() => setActiveTab('canteen_support')}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'canteen_support'
+                        ? 'bg-teal-700 text-white shadow-xs'
+                        : 'text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <PackageCheck className="w-3.5 h-3.5" />
+                    Destek Tahsisleri & Kodla Teslim
+                  </button>
+
+                  <button
                     onClick={() => setActiveTab('canteen_products')}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeTab === 'canteen_products'
@@ -220,6 +234,44 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
 
+              {user?.role === 'manager' && (
+                <>
+                  <button
+                    onClick={() => setActiveTab('manager_dashboard')}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'manager_dashboard'
+                        ? 'bg-emerald-800 text-white shadow-xs'
+                        : 'text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <School className="w-3.5 h-3.5" />
+                    Kurum Müdürü Paneli
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('canteen_support')}
+                    className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Kantin Teslimatları
+                  </button>
+                </>
+              )}
+
+              {user?.role === 'teacher' && (
+                <>
+                  <button
+                    onClick={() => setActiveTab('teacher_dashboard')}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'teacher_dashboard'
+                        ? 'bg-blue-800 text-white shadow-xs'
+                        : 'text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    Danışman Öğretmen Paneli
+                  </button>
+                </>
+              )}
+
               {user?.role === 'admin' && (
                 <>
                   <button
@@ -231,7 +283,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Yönetim & Güvenlik
+                    Sistem Yönetimi
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('manager_dashboard')}
+                    className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Müdür Paneli
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('teacher_dashboard')}
+                    className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900"
+                  >
+                    Öğretmen Paneli
                   </button>
 
                   <button
@@ -239,13 +305,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900"
                   >
                     Kantin Ekranı
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('menu')}
-                    className="px-3 py-1.5 text-xs text-stone-600 hover:text-stone-900"
-                  >
-                    Veli Ekranı
                   </button>
                 </>
               )}
@@ -339,7 +398,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="text-left hidden sm:block">
                       <p className="text-xs font-bold text-stone-900 truncate max-w-[120px]">{user.fullName}</p>
                       <p className="text-[10px] text-stone-500 uppercase font-semibold">
-                        {user.role === 'parent' ? '👨‍👩‍👦 Veli' : user.role === 'canteen' ? '🥪 Kantinci' : '🛡️ Yönetici'}
+                        {user.role === 'parent' ? '👨‍👩‍👦 Veli' : user.role === 'canteen' ? '🥪 Kantinci' : user.role === 'manager' ? '🎓 Kurum Müdürü' : user.role === 'teacher' ? '👩‍🏫 Danışman Öğretmen' : '🛡️ Yönetici'}
                       </p>
                     </div>
                     <div className="w-7 h-7 rounded-lg bg-emerald-800 text-white font-bold text-xs flex items-center justify-center">
@@ -363,7 +422,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-xs font-bold text-stone-900">{user?.fullName}</p>
                       <p className="text-[11px] text-stone-500">{user?.email}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                        {user?.role === 'parent' ? 'Veli Hesabı' : user?.role === 'canteen' ? 'Kantin İşletmecisi' : 'Sistem Yöneticisi'}
+                        {user?.role === 'parent' ? 'Veli Hesabı' : user?.role === 'canteen' ? 'Kantin İşletmecisi' : user?.role === 'manager' ? 'Kurum Müdürü' : user?.role === 'teacher' ? 'Danışman Öğretmen' : 'Sistem Yöneticisi'}
                       </span>
                     </div>
 
@@ -380,6 +439,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                             quickLogin(q.id);
                             setIsUserMenuOpen(false);
                             if (q.role === 'canteen') setActiveTab('canteen_orders');
+                            else if (q.role === 'manager') setActiveTab('manager_dashboard');
+                            else if (q.role === 'teacher') setActiveTab('teacher_dashboard');
                             else if (q.role === 'admin') setActiveTab('admin_dashboard');
                             else setActiveTab('menu');
                           }}
@@ -390,7 +451,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <div>
                             <span className="block truncate">{q.fullName}</span>
                             <span className="text-[10px] text-stone-400">
-                              {q.role === 'parent' ? 'Veli' : q.role === 'canteen' ? 'Kantinci' : 'Yönetici'}
+                              {q.role === 'parent' ? 'Veli' : q.role === 'canteen' ? 'Kantinci' : q.role === 'manager' ? 'Kurum Müdürü' : q.role === 'teacher' ? 'Danışman Öğretmen' : 'Sistem Yöneticisi'}
                             </span>
                           </div>
                           {user?.id === q.id && <Check className="w-3.5 h-3.5 text-emerald-700" />}

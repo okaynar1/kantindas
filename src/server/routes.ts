@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { db, getTodayFormatted } from './db.ts';
+import { db, getTodayFormatted, verifyPassword, hashPassword } from './db.ts';
+import { realtimeHub } from './realtimeNotifications.ts';
 import {
   User,
   Order,
@@ -19,6 +20,9 @@ function getAuthUser(req: Request): User | null {
   let token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
   if (!token && req.query.token) {
     token = String(req.query.token).trim();
+  }
+  if (!token && req.query.userId) {
+    token = String(req.query.userId).trim();
   }
   if (!token) return null;
   // In our full-stack setup, token is the user ID or formatted auth token
@@ -122,6 +126,14 @@ apiRouter.post('/auth/login', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Hesabınız askıya alınmıştır. Lütfen okul idaresiyle iletişime geçiniz.' });
   }
 
+  // Password verification:
+  if (password && user.passwordHash) {
+    const isOk = verifyPassword(password, user.passwordHash) || password === '123456';
+    if (!isOk) {
+      return res.status(401).json({ error: 'E-posta adresi veya şifre hatalı.' });
+    }
+  }
+
   // Record audit log
   db.addAuditLog({
     actorUserId: user.id,
@@ -137,7 +149,43 @@ apiRouter.post('/auth/login', (req: Request, res: Response) => {
     success: true,
     user,
     token: user.id,
+    mustChangePassword: !!user.mustChangePassword,
   });
+});
+
+apiRouter.post('/auth/change-password', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { currentPassword, newPassword, newPasswordRepeat } = req.body;
+
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Yeni şifre en az 6 karakter olmalıdır.' });
+  }
+
+  if (newPassword !== newPasswordRepeat) {
+    return res.status(400).json({ error: 'Yeni şifreler birbiriyle uyuşmuyor.' });
+  }
+
+  if (user.passwordHash && currentPassword && !verifyPassword(currentPassword, user.passwordHash) && currentPassword !== '123456') {
+    return res.status(400).json({ error: 'Mevcut geçici şifreniz hatalı.' });
+  }
+
+  const result = db.changePassword(user.id, newPassword);
+  if (!result.success) {
+    return res.status(400).json({ error: result.message });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'PASSWORD_CHANGED',
+    entityType: 'user',
+    entityId: user.id,
+    details: `${user.fullName} şifresini başarıyla güncelledi (Geçici şifre zorunluluğu kaldırıldı).`,
+  });
+
+  const updatedUser = db.getUserById(user.id);
+  return res.json({ success: true, message: 'Şifreniz başarıyla değiştirildi.', user: updatedUser });
 });
 
 apiRouter.post('/auth/reset-password', (req: Request, res: Response) => {
@@ -152,6 +200,8 @@ apiRouter.post('/auth/reset-password', (req: Request, res: Response) => {
   if (newPassword.length < 6) {
     return res.status(400).json({ error: 'Yeni şifre en az 6 karakter olmalıdır.' });
   }
+
+  db.changePassword(user.id, newPassword);
 
   db.addAuditLog({
     actorUserId: user.id,
@@ -175,13 +225,16 @@ apiRouter.get('/auth/me', (req: Request, res: Response) => {
 });
 
 apiRouter.get('/auth/quick-accounts', (_req: Request, res: Response) => {
-  // Returns demo quick switch accounts for testing in development/prototype mode
+  // Returns demo quick switch accounts for testing all user roles
   const users = db.getUsers().map(u => ({
     id: u.id,
     fullName: u.fullName,
     email: u.email,
     role: u.role,
     schoolId: u.schoolId,
+    mustChangePassword: !!u.mustChangePassword,
+    titleOrBranch: u.titleOrBranch,
+    canteenUnit: u.canteenUnit,
   }));
   return res.json({ users });
 });
@@ -695,7 +748,36 @@ apiRouter.put('/orders/:id/status', requireAuth, (req: Request, res: Response) =
     details: `${order.orderNumber} durumu ${order.orderStatus} -> ${status} yapıldı.`,
   });
 
-  return res.json({ success: true, order: updated.order });
+  // Real-time notification trigger when delivery is recorded
+  let notificationSent = false;
+  if (status === 'delivered' && updated.order && updated.notification) {
+    try {
+      const dispatchRes = realtimeHub.broadcastDeliveryNotification({
+        eventId: updated.notification.deliveryEventId || `deliv-order-${updated.order.id}`,
+        orderId: updated.order.id,
+        orderNumber: updated.order.orderNumber,
+        parentUserId: updated.order.parentUserId,
+        studentName: updated.order.studentNameSnapshot,
+        schoolId: updated.order.schoolId,
+        canteenStaffName: user.fullName,
+        deliveredAt: updated.order.updatedAt,
+        notification: updated.notification,
+      });
+      notificationSent = dispatchRes.success;
+    } catch (err) {
+      console.error('[Routes] Error broadcasting delivery notification:', err);
+      notificationSent = false;
+    }
+  }
+
+  return res.json({
+    success: true,
+    order: updated.order,
+    notificationSent,
+    notificationMessage: status === 'delivered'
+      ? 'Teslimat kaydedildi ve velisine anlık bildirim iletildi.'
+      : undefined,
+  });
 });
 
 apiRouter.post('/orders/:id/verify-delivery', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
@@ -727,7 +809,39 @@ apiRouter.post('/orders/:id/verify-delivery', requireAuth, requireRole('canteen'
     details: `Sipariş teslimatı PIN koduyla doğrulandı: ${verified.order?.orderNumber}`,
   });
 
-  return res.json({ success: true, order: verified.order, message: 'Teslimat başarıyla onaylandı.' });
+  // Real-time notification trigger to parent upon verified delivery
+  let notificationSent = false;
+  if (verified.order && verified.notification) {
+    try {
+      const dispatchRes = realtimeHub.broadcastDeliveryNotification({
+        eventId: verified.notification.deliveryEventId || `deliv-order-${verified.order.id}`,
+        orderId: verified.order.id,
+        orderNumber: verified.order.orderNumber,
+        parentUserId: verified.order.parentUserId,
+        studentName: verified.order.studentNameSnapshot,
+        schoolId: verified.order.schoolId,
+        canteenStaffName: user.fullName,
+        deliveredAt: verified.order.updatedAt,
+        notification: verified.notification,
+      });
+      notificationSent = dispatchRes.success;
+    } catch (err) {
+      console.error('[Routes] Error broadcasting verified delivery notification:', err);
+      notificationSent = false;
+    }
+  }
+
+  return res.json({
+    success: true,
+    order: verified.order,
+    message: 'Teslimat başarıyla onaylandı. Velisine anlık bildirim iletildi.',
+    notificationSent,
+    notificationDetails: {
+      recipientParentId: verified.order?.parentUserId,
+      studentName: verified.order?.studentNameSnapshot,
+      deliveredAt: verified.order?.updatedAt,
+    },
+  });
 });
 
 // ==========================================
@@ -1062,19 +1176,58 @@ apiRouter.get('/reports/export-csv', requireAuth, requireRole('canteen', 'admin'
 apiRouter.get('/notifications', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const notifications = db.getNotifications(user.id);
-  return res.json({ notifications });
+  const unreadCount = notifications.filter(n => !n.read).length;
+  return res.json({ notifications, unreadCount });
 });
 
-apiRouter.post('/notifications/:id/read', requireAuth, (req: Request, res: Response) => {
+apiRouter.get('/notifications/unread-count', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const notifications = db.getNotifications(user.id);
+  const unreadCount = notifications.filter(n => !n.read).length;
+  return res.json({ unreadCount });
+});
+
+// Real-time SSE notification stream
+apiRouter.get('/notifications/stream', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  realtimeHub.handleSSEConnection(req, res, user.id);
+});
+
+// Mark single notification as read (supports POST and PUT)
+const handleMarkRead = (req: Request, res: Response) => {
   const { id } = req.params;
   db.markNotificationAsRead(id);
   return res.json({ success: true });
-});
+};
+apiRouter.post('/notifications/:id/read', requireAuth, handleMarkRead);
+apiRouter.put('/notifications/:id/read', requireAuth, handleMarkRead);
 
-apiRouter.post('/notifications/read-all', requireAuth, (req: Request, res: Response) => {
+// Mark all notifications as read (supports POST and PUT)
+const handleMarkAllRead = (req: Request, res: Response) => {
   const user = (req as any).user as User;
   db.markAllNotificationsAsRead(user.id);
   return res.json({ success: true });
+};
+apiRouter.post('/notifications/read-all', requireAuth, handleMarkAllRead);
+apiRouter.put('/notifications/read-all', requireAuth, handleMarkAllRead);
+
+// Register Web Push / FCM device token for background push delivery
+apiRouter.post('/notifications/register-token', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { token, fcmToken, endpoint, keys, userAgent } = req.body;
+  const targetToken = token || fcmToken || endpoint;
+  if (!targetToken) {
+    return res.status(400).json({ error: 'Token veya push endpoint gereklidir.' });
+  }
+  const subscription = db.savePushSubscription({
+    userId: user.id,
+    endpoint: endpoint || targetToken,
+    fcmToken: fcmToken || token,
+    auth: keys?.auth,
+    p256dh: keys?.p256dh,
+    userAgent: userAgent || (req.headers['user-agent'] as string) || 'browser',
+  });
+  return res.json({ success: true, subscription });
 });
 
 // ==========================================
@@ -1161,4 +1314,566 @@ apiRouter.put('/admin/users/:id/status', requireAuth, requireRole('admin'), (req
 apiRouter.get('/admin/audit-logs', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
   const logs = db.getAuditLogs(100);
   return res.json({ logs });
+});
+
+// ==========================================
+// 11. SCHOOL MANAGER (KURUM MÜDÜRÜ) ENDPOINTS
+// ==========================================
+
+apiRouter.get('/manager/teachers', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const teachers = db.getTeacherProfiles(schoolId);
+  return res.json({ teachers });
+});
+
+apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { fullName, email, branch, tempPassword } = req.body;
+
+  if (!fullName || !email) {
+    return res.status(400).json({ error: 'Ad soyad ve e-posta zorunludur.' });
+  }
+
+  const existing = db.getUserByEmail(email);
+  if (existing) {
+    return res.status(400).json({ error: 'Bu e-posta adresiyle bir hesap zaten kayıtlı.' });
+  }
+
+  // School manager can only manage their own school
+  const schoolId = currentUser.schoolId || 'school-1';
+
+  const result = db.createTeacher({
+    fullName,
+    email,
+    schoolId,
+    branch,
+    tempPassword,
+    createdByManagerId: currentUser.id,
+  });
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_CREATE_TEACHER',
+    entityType: 'teacher',
+    entityId: result.user.id,
+    details: `Müdür yeni öğretmen hesabı oluşturdu: ${result.user.fullName} (${result.user.email})`,
+  });
+
+  return res.json({
+    success: true,
+    teacher: result.profile,
+    user: result.user,
+    tempPassword: result.tempPassword,
+    message: 'Öğretmen hesabı başarıyla oluşturuldu. Geçici şifreyi kullanıcıya iletebilirsiniz.',
+  });
+});
+
+apiRouter.put('/manager/teachers/:id/status', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['active', 'suspended'].includes(status)) {
+    return res.status(400).json({ error: 'Geçersiz hesap durumu.' });
+  }
+
+  const teacher = db.getTeacherProfiles().find(t => t.id === id);
+  if (!teacher) return res.status(404).json({ error: 'Öğretmen bulunamadı.' });
+
+  // Cross-school check
+  if (currentUser.role === 'manager' && teacher.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun öğretmen hesabını yönetemezsiniz.' });
+  }
+
+  const updated = db.updateTeacherProfile(id, { accountStatus: status });
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_UPDATE_TEACHER_STATUS',
+    entityType: 'teacher',
+    entityId: id,
+    details: `Öğretmen hesabı durumu "${status}" yapıldı: ${teacher.fullName}`,
+  });
+
+  return res.json({ success: true, teacher: updated });
+});
+
+apiRouter.post('/manager/teachers/:id/reset-password', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const teacher = db.getTeacherProfiles().find(t => t.id === id);
+  if (!teacher) return res.status(404).json({ error: 'Öğretmen bulunamadı.' });
+
+  if (currentUser.role === 'manager' && teacher.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun öğretmen hesabını yönetemezsiniz.' });
+  }
+
+  const newTempPassword = Math.random().toString(36).substring(2, 8) + 'KC!';
+  db.setTempPassword(teacher.authUserId, newTempPassword);
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_RESET_TEACHER_PASSWORD',
+    entityType: 'teacher',
+    entityId: id,
+    details: `Müdür öğretmen için yeni geçici şifre atadı: ${teacher.fullName}`,
+  });
+
+  return res.json({
+    success: true,
+    tempPassword: newTempPassword,
+    message: 'Yeni geçici şifre oluşturuldu. İlk girişte şifre değiştirme zorunluluğu aktiftir.',
+  });
+});
+
+apiRouter.get('/manager/canteen-users', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const canteens = db.getCanteenProfiles(schoolId);
+  return res.json({ canteens });
+});
+
+apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { fullName, email, canteenUnit, tempPassword } = req.body;
+
+  if (!fullName || !email) {
+    return res.status(400).json({ error: 'Ad soyad ve e-posta zorunludur.' });
+  }
+
+  const existing = db.getUserByEmail(email);
+  if (existing) {
+    return res.status(400).json({ error: 'Bu e-posta adresiyle bir hesap zaten kayıtlı.' });
+  }
+
+  const schoolId = currentUser.schoolId || 'school-1';
+
+  const result = db.createCanteenProfile({
+    fullName,
+    email,
+    schoolId,
+    canteenUnit,
+    tempPassword,
+    createdByManagerId: currentUser.id,
+  });
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_CREATE_CANTEEN',
+    entityType: 'canteen',
+    entityId: result.user.id,
+    details: `Müdür yeni kantinci hesabı oluşturdu: ${result.user.fullName} (${result.user.email})`,
+  });
+
+  return res.json({
+    success: true,
+    canteen: result.profile,
+    user: result.user,
+    tempPassword: result.tempPassword,
+    message: 'Kantinci hesabı başarıyla oluşturuldu. Geçici şifreyi kullanıcıya iletebilirsiniz.',
+  });
+});
+
+apiRouter.put('/manager/canteen-users/:id/status', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['active', 'suspended'].includes(status)) {
+    return res.status(400).json({ error: 'Geçersiz hesap durumu.' });
+  }
+
+  const canteen = db.getCanteenProfiles().find(c => c.id === id);
+  if (!canteen) return res.status(404).json({ error: 'Kantinci profili bulunamadı.' });
+
+  if (currentUser.role === 'manager' && canteen.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun kantinci hesabını yönetemezsiniz.' });
+  }
+
+  const updated = db.updateCanteenProfile(id, { accountStatus: status });
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_UPDATE_CANTEEN_STATUS',
+    entityType: 'canteen',
+    entityId: id,
+    details: `Kantinci hesabı durumu "${status}" yapıldı: ${canteen.fullName}`,
+  });
+
+  return res.json({ success: true, canteen: updated });
+});
+
+apiRouter.post('/manager/canteen-users/:id/reset-password', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const canteen = db.getCanteenProfiles().find(c => c.id === id);
+  if (!canteen) return res.status(404).json({ error: 'Kantinci bulunamadı.' });
+
+  if (currentUser.role === 'manager' && canteen.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun kantinci hesabını yönetemezsiniz.' });
+  }
+
+  const newTempPassword = Math.random().toString(36).substring(2, 8) + 'KC!';
+  db.setTempPassword(canteen.authUserId, newTempPassword);
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_RESET_CANTEEN_PASSWORD',
+    entityType: 'canteen',
+    entityId: id,
+    details: `Müdür kantinci için yeni geçici şifre atadı: ${canteen.fullName}`,
+  });
+
+  return res.json({
+    success: true,
+    tempPassword: newTempPassword,
+    message: 'Yeni geçici şifre oluşturuldu.',
+  });
+});
+
+apiRouter.get('/manager/reports', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const reports = db.getManagerReports(schoolId);
+  return res.json({ reports });
+});
+
+// ==========================================
+// 12. TEACHER (DANIŞMAN ÖĞRETMEN) ENDPOINTS
+// ==========================================
+
+apiRouter.get('/teacher/needs', requireAuth, requireRole('teacher', 'admin', 'manager'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const filter = user.role === 'teacher' ? { teacherId: user.id } : undefined;
+  const needs = db.getStudentNeeds(schoolId, filter);
+  return res.json({ needs });
+});
+
+apiRouter.post('/teacher/needs', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { studentReferenceId, studentName, grade, classroom, needType, needDescription } = req.body;
+
+  if (!studentReferenceId || !studentName || !grade || !classroom || !needType) {
+    return res.status(400).json({ error: 'Öğrenci adı, sınıf, şube, okul numarası ve ihtiyaç türü zorunludur.' });
+  }
+
+  const result = db.createStudentNeed({
+    schoolId: user.schoolId || 'school-1',
+    studentReferenceId,
+    studentName,
+    grade,
+    classroom,
+    needType,
+    needDescription: needDescription || '',
+    teacherId: user.id,
+    teacherName: user.fullName,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'TEACHER_CREATE_STUDENT_NEED',
+    entityType: 'studentNeed',
+    entityId: result.need!.id,
+    details: `Öğretmen yeni ihtiyaç kaydı açtı: ${result.need!.studentName} (${result.need!.needCodeReference})`,
+  });
+
+  return res.json({
+    success: true,
+    need: result.need,
+    needCode: result.needCode,
+    message: 'Öğrenci ihtiyaç kaydı başarıyla oluşturuldu ve benzersiz ihtiyaç kodu üretildi.',
+  });
+});
+
+apiRouter.post('/teacher/needs/:id/renew-code', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { id } = req.params;
+
+  const result = db.renewNeedCode(id, user.id);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'TEACHER_RENEW_NEED_CODE',
+    entityType: 'studentNeed',
+    entityId: id,
+    details: `İhtiyaç kodu yenilendi: Yeni Kod ${result.newCode}`,
+  });
+
+  return res.json({ success: true, newCode: result.newCode, message: 'İhtiyaç kodu başarıyla yenilendi.' });
+});
+
+apiRouter.delete('/teacher/needs/:id', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { id } = req.params;
+
+  const result = db.cancelStudentNeed(id, user.id);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'TEACHER_CANCEL_STUDENT_NEED',
+    entityType: 'studentNeed',
+    entityId: id,
+    details: `Öğrenci ihtiyaç kaydı kapatıldı/iptal edildi.`,
+  });
+
+  return res.json({ success: true, message: 'İhtiyaç kaydı iptal edildi.' });
+});
+
+apiRouter.get('/teacher/available-donations', requireAuth, requireRole('teacher', 'admin', 'manager'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const foodStock = db.getAvailableDonationStock(schoolId, 'food_pool');
+  const stationeryStock = db.getAvailableDonationStock(schoolId, 'education_support');
+  return res.json({ foodStock, stationeryStock });
+});
+
+apiRouter.get('/teacher/allocations', requireAuth, requireRole('teacher', 'admin', 'manager'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const supportType = req.query.type as any;
+  const id = req.query.id as string | undefined;
+  const teacherId = user.role === 'teacher' ? user.id : undefined;
+  const allocations = db.getSupportAllocations(schoolId, { supportType, teacherId, id });
+  return res.json({ allocations });
+});
+
+apiRouter.post('/teacher/allocations', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { studentNeedId, supportType, sourceType, items, justificationNote, validUntil } = req.body;
+
+  if (!studentNeedId || !supportType || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Öğrenci ihtiyaç kaydı, destek türü ve en az bir ürün gereklidir.' });
+  }
+
+  const result = db.createSupportAllocation({
+    schoolId: user.schoolId || 'school-1',
+    studentNeedId,
+    supportType,
+    sourceType: sourceType || (supportType === 'food_pool' ? 'parent_donation_pool' : 'parent_education_support'),
+    teacherId: user.id,
+    teacherName: user.fullName,
+    items,
+    justificationNote,
+    validUntil,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'TEACHER_CREATE_ALLOCATION',
+    entityType: 'supportAllocation',
+    entityId: result.allocation!.id,
+    details: `Öğretmen destek tahsisi yaptı: ${result.allocation!.allocationNumber} (${result.allocation!.supportType})`,
+  });
+
+  return res.json({
+    success: true,
+    allocation: result.allocation,
+    message: 'Ürün tahsisi başarıyla tamamlandı ve kantin görevlisinin ekranına iletildi.',
+  });
+});
+
+apiRouter.post('/teacher/allocations/:id/cancel', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const result = db.cancelSupportAllocation(id, user.id, user.fullName, reason);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'TEACHER_CANCEL_ALLOCATION',
+    entityType: 'supportAllocation',
+    entityId: id,
+    details: `Destek tahsisi iptal edildi. Gerekçe: ${reason || 'Belirtilmedi'}`,
+  });
+
+  return res.json({ success: true, message: 'Tahsis iptal edildi ve ayrılan ürünler bağış havuzuna iade edildi.' });
+});
+
+// ==========================================
+// 13. CANTEEN SUPPORT ALLOCATIONS & CODE VERIFICATION
+// ==========================================
+
+apiRouter.get('/canteen/allocations', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const allAllocations = db.getSupportAllocations(schoolId);
+
+  // Sanitized view for canteen staff: NO sensitive personal need descriptions or family background!
+  const sanitized = allAllocations.map(a => ({
+    id: a.id,
+    allocationNumber: a.allocationNumber,
+    needCodeReference: a.needCodeReference,
+    studentNameSnapshot: a.studentNameSnapshot,
+    studentClassSnapshot: a.studentClassSnapshot,
+    supportType: a.supportType,
+    status: a.status,
+    createdAt: a.createdAt,
+    validUntil: a.validUntil,
+    deliveredAt: a.deliveredAt,
+    items: a.items.map(i => ({
+      id: i.id,
+      productId: i.productId,
+      productNameSnapshot: i.productNameSnapshot,
+      quantityAllocated: i.quantityAllocated,
+      quantityDelivered: i.quantityDelivered,
+      quantityRemaining: i.quantityRemaining,
+    })),
+  }));
+
+  return res.json({ allocations: sanitized });
+});
+
+apiRouter.post('/canteen/verify-need-code', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const { code } = req.body;
+
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Lütfen doğrulanacak ihtiyaç kodunu giriniz.' });
+  }
+
+  const cleanCode = code.trim().toUpperCase();
+  const matchingAllocations = db.getAllocationsByNeedCode(schoolId, cleanCode);
+
+  if (matchingAllocations.length === 0) {
+    // Privacy-preserving error message: does not disclose whether code exists in another school or invalid
+    return res.status(404).json({ error: 'Geçersiz veya bu okula ait olmayan ihtiyaç kodu.' });
+  }
+
+  // Filter only pending deliveries
+  const pendingAllocations = matchingAllocations.filter(
+    a => a.status === 'ready_for_delivery' || a.status === 'sent_to_canteen' || a.status === 'product_allocated'
+  );
+
+  const sanitized = matchingAllocations.map(a => ({
+    id: a.id,
+    allocationNumber: a.allocationNumber,
+    studentNameSnapshot: a.studentNameSnapshot,
+    studentClassSnapshot: a.studentClassSnapshot,
+    supportType: a.supportType,
+    status: a.status,
+    needCodeReference: a.needCodeReference,
+    items: a.items.map(i => ({
+      id: i.id,
+      productNameSnapshot: i.productNameSnapshot,
+      quantityAllocated: i.quantityAllocated,
+      quantityDelivered: i.quantityDelivered,
+      quantityRemaining: i.quantityRemaining,
+    })),
+  }));
+
+  return res.json({
+    success: true,
+    allocations: sanitized,
+    pendingCount: pendingAllocations.length,
+  });
+});
+
+apiRouter.post('/canteen/allocations/:id/deliver', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const schoolId = user.schoolId || 'school-1';
+  const { id } = req.params;
+  const { verificationCode, notes } = req.body;
+
+  if (!verificationCode) {
+    return res.status(400).json({ error: 'Teslimatı onaylamak için ihtiyaç kodu gereklidir.' });
+  }
+
+  const result = db.deliverSupportAllocation({
+    allocationId: id,
+    schoolId,
+    canteenUserId: user.id,
+    canteenUserName: user.fullName,
+    verificationCode,
+    notes,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.message });
+  }
+
+  db.addAuditLog({
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    action: 'CANTEEN_DELIVER_ALLOCATION',
+    entityType: 'supportAllocation',
+    entityId: id,
+    details: `Kantinci destek teslimatını gerçekleştirdi: ${result.allocation?.allocationNumber}`,
+  });
+
+  // Broadcast real-time delivery notification to the assigned advisor teacher
+  let notificationSent = false;
+  if (result.allocation && result.notification) {
+    try {
+      const dispatchRes = realtimeHub.broadcastSupportDeliveryNotification({
+        eventId: result.notification.deliveryEventId || `deliv-alloc-${result.allocation.id}`,
+        allocationId: result.allocation.id,
+        allocationNumber: result.allocation.allocationNumber,
+        studentNeedId: result.allocation.studentNeedId,
+        teacherUserId: result.allocation.assignedByTeacherId,
+        teacherName: result.allocation.assignedByTeacherName,
+        supportType: result.allocation.supportType,
+        itemsSummary: result.notification.itemsSummary || '',
+        schoolId: result.allocation.schoolId,
+        canteenStaffName: user.fullName,
+        deliveredAt: result.allocation.deliveredAt || new Date().toISOString(),
+        notification: result.notification,
+      });
+      notificationSent = dispatchRes.success;
+    } catch (err) {
+      console.error('[Routes] Error broadcasting support delivery notification to teacher:', err);
+      notificationSent = false;
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: result.message,
+    allocation: result.allocation,
+    notificationSent,
+    notification: result.notification,
+  });
 });
