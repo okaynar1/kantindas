@@ -55,7 +55,7 @@ function requireRole(...roles: UserRole[]) {
 // 1. AUTHENTICATION & USERS
 // ==========================================
 
-apiRouter.post('/auth/register', (req: Request, res: Response) => {
+const handleRegister = (req: Request, res: Response) => {
   const { fullName, email, password, passwordRepeat, kvkkConsent, schoolId } = req.body;
 
   if (!fullName || !email || !password) {
@@ -108,9 +108,11 @@ apiRouter.post('/auth/register', (req: Request, res: Response) => {
     token: newUser.id,
     message: 'Kaydınız başarıyla oluşturuldu.',
   });
-});
+};
+apiRouter.post('/auth/register', handleRegister);
+apiRouter.post('/register', handleRegister);
 
-apiRouter.post('/auth/login', (req: Request, res: Response) => {
+const handleLogin = (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email) {
@@ -151,7 +153,9 @@ apiRouter.post('/auth/login', (req: Request, res: Response) => {
     token: user.id,
     mustChangePassword: !!user.mustChangePassword,
   });
-});
+};
+apiRouter.post('/auth/login', handleLogin);
+apiRouter.post('/login', handleLogin);
 
 apiRouter.post('/auth/change-password', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
@@ -216,15 +220,17 @@ apiRouter.post('/auth/reset-password', (req: Request, res: Response) => {
   return res.json({ success: true, message: 'Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.' });
 });
 
-apiRouter.get('/auth/me', (req: Request, res: Response) => {
+const handleMe = (req: Request, res: Response) => {
   const user = getAuthUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Geçersiz oturum.' });
   }
   return res.json({ user });
-});
+};
+apiRouter.get('/auth/me', handleMe);
+apiRouter.get('/me', handleMe);
 
-apiRouter.get('/auth/quick-accounts', (_req: Request, res: Response) => {
+const handleQuickAccounts = (_req: Request, res: Response) => {
   // Returns demo quick switch accounts for testing all user roles
   const users = db.getUsers().map(u => ({
     id: u.id,
@@ -237,7 +243,9 @@ apiRouter.get('/auth/quick-accounts', (_req: Request, res: Response) => {
     canteenUnit: u.canteenUnit,
   }));
   return res.json({ users });
-});
+};
+apiRouter.get('/auth/quick-accounts', handleQuickAccounts);
+apiRouter.get('/quick-accounts', handleQuickAccounts);
 
 // ==========================================
 // 2. SCHOOLS, BREAKS & CATEGORIES

@@ -1,32 +1,14 @@
-import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { apiRouter } from './src/server/routes.ts';
+import { app } from './src/server/app.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
-  const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-
-  // JSON request body parser
-  app.use(express.json());
-
-  // Mount API router
-  app.use('/api', apiRouter);
-
-  // Health check endpoint
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      service: 'KantinCep API',
-      version: '1.0.0',
-      timestamp: new Date().toISOString(),
-    });
-  });
-
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {

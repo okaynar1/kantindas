@@ -30,7 +30,7 @@ import {
   X,
   Filter,
 } from 'lucide-react';
-import { api } from '../services/api.ts';
+import { api, API_BASE_URL } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { StudentNeed, SupportAllocation, NotificationItem } from '../types.ts';
 
@@ -120,7 +120,8 @@ export const TeacherDashboardView: React.FC = () => {
     if (!user) return;
 
     // Connect to Server-Sent Events (SSE) stream for live in-app notifications
-    const eventSource = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(user.id)}`);
+    const streamUrl = `${API_BASE_URL}/notifications/stream?token=${encodeURIComponent(user.id)}`;
+    const eventSource = new EventSource(streamUrl);
 
     eventSource.addEventListener('connected', () => {
       console.log('[TeacherDashboard] SSE connection established.');

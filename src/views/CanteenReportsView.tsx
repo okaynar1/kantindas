@@ -12,7 +12,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { CanteenReportSummary } from '../types.ts';
-import { api } from '../services/api.ts';
+import { api, API_BASE_URL } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
 export const CanteenReportsView: React.FC = () => {
@@ -45,7 +45,7 @@ export const CanteenReportsView: React.FC = () => {
     setDownloadNotice(null);
     try {
       const token = localStorage.getItem('kantincep_auth_token') || '';
-      const res = await fetch(`/api/reports/export-csv?token=${encodeURIComponent(token)}`, {
+      const res = await fetch(`${API_BASE_URL}/reports/export-csv?token=${encodeURIComponent(token)}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
