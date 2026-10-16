@@ -402,6 +402,52 @@
       "updatedAt": "2026-10-14T08:29:32.193Z",
       "passwordHash": "88657e8c782961b360eaa9f852dd615f650616debba004248d43d4fb21399ebe",
       "mustChangePassword": false
+    },
+    {
+      "id": "user-teacher-1792179511819-1l16",
+      "fullName": "Öğretmen İki (İzolasyon Testi)",
+      "email": "ogretmen2_1792179511796@okul.meb.gov.tr",
+      "role": "teacher",
+      "schoolId": "school-1",
+      "accountStatus": "suspended",
+      "mustChangePassword": true,
+      "titleOrBranch": "Fen Bilgisi & Rehberlik",
+      "createdByManagerId": "user-admin-1",
+      "passwordHash": "919f66e06e396373026371e995bbfd336e2d3286c58cb3301b862e24a21ccb7f",
+      "createdAt": "2026-10-16T19:38:31.819Z",
+      "updatedAt": "2026-10-16T19:38:32.055Z"
+    },
+    {
+      "id": "user-1792179516822-pqwn",
+      "fullName": "Veli Bir",
+      "email": "veli1_1792179516734@test.com",
+      "role": "parent",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "createdAt": "2026-10-16T19:38:36.822Z",
+      "updatedAt": "2026-10-16T19:38:36.822Z"
+    },
+    {
+      "id": "user-1792179516842-umlz",
+      "fullName": "Veli İki",
+      "email": "veli2_1792179516734@test.com",
+      "role": "parent",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "createdAt": "2026-10-16T19:38:36.842Z",
+      "updatedAt": "2026-10-16T19:38:36.842Z"
+    },
+    {
+      "id": "user-1792179527438-q3pn",
+      "fullName": "Test Veli Ayşe",
+      "email": "test.veli.1792179527423@kantincep.com",
+      "role": "parent",
+      "schoolId": "school-1",
+      "accountStatus": "active",
+      "createdAt": "2026-10-16T19:38:47.438Z",
+      "updatedAt": "2026-10-16T19:38:47.452Z",
+      "passwordHash": "88657e8c782961b360eaa9f852dd615f650616debba004248d43d4fb21399ebe",
+      "mustChangePassword": false
     }
   ],
   "schools": [
@@ -533,6 +579,36 @@
       "classroom": "3-C",
       "activeStatus": true,
       "createdAt": "2026-10-14T08:29:32.211Z"
+    },
+    {
+      "id": "student-1792179516856-tplx",
+      "parentUserId": "user-1792179516822-pqwn",
+      "schoolId": "school-1",
+      "fullName": "Ali Birinci",
+      "grade": "4. Sınıf",
+      "classroom": "4-B",
+      "activeStatus": true,
+      "createdAt": "2026-10-16T19:38:36.856Z"
+    },
+    {
+      "id": "student-1792179516862-4m2y",
+      "parentUserId": "user-1792179516842-umlz",
+      "schoolId": "school-1",
+      "fullName": "Ayşe İkinci",
+      "grade": "3. Sınıf",
+      "classroom": "3-A",
+      "activeStatus": true,
+      "createdAt": "2026-10-16T19:38:36.862Z"
+    },
+    {
+      "id": "student-1792179527463-f1z7",
+      "parentUserId": "user-1792179527438-q3pn",
+      "schoolId": "school-1",
+      "fullName": "Barış Test",
+      "grade": "3. Sınıf",
+      "classroom": "3-C",
+      "activeStatus": true,
+      "createdAt": "2026-10-16T19:38:47.463Z"
     }
   ],
   "categories": [
@@ -635,7 +711,7 @@
       "categoryId": "cat-1",
       "productType": "food",
       "price": 45,
-      "stockQuantity": 32,
+      "stockQuantity": 30,
       "imageUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=80",
       "allergens": [
         "Gluten",
@@ -643,7 +719,7 @@
       ],
       "activeStatus": true,
       "createdAt": "2026-10-12T19:26:41.449Z",
-      "updatedAt": "2026-10-14T08:29:23.865Z"
+      "updatedAt": "2026-10-16T19:38:36.869Z"
     },
     {
       "id": "prod-2",
@@ -1002,9 +1078,158 @@
       "activeStatus": true,
       "createdAt": "2026-10-14T08:29:32.226Z",
       "updatedAt": "2026-10-14T08:29:32.397Z"
+    },
+    {
+      "id": "prod-1792179527472-40xw",
+      "schoolId": "school-1",
+      "name": "Otomasyon Test Tostu",
+      "description": "Test tostu",
+      "categoryId": "cat-1",
+      "productType": "food",
+      "price": 48,
+      "stockQuantity": 23,
+      "imageUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500",
+      "allergens": [
+        "Gluten"
+      ],
+      "activeStatus": true,
+      "createdAt": "2026-10-16T19:38:47.472Z",
+      "updatedAt": "2026-10-16T19:38:47.602Z"
     }
   ],
   "orders": [
+    {
+      "id": "order-1792179527584-vvqv",
+      "orderNumber": "KC-20261016-350",
+      "parentUserId": "user-1792179527438-q3pn",
+      "studentId": "student-1792179527463-f1z7",
+      "studentNameSnapshot": "Barış Test",
+      "studentClassSnapshot": "3. Sınıf / 3-C",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "cancelled",
+      "subtotal": 144,
+      "totalAmount": 144,
+      "note": "",
+      "deliveryCode": "7242",
+      "isVerifiedDelivery": false,
+      "createdAt": "2026-10-16T19:38:47.584Z",
+      "updatedAt": "2026-10-16T19:38:47.602Z",
+      "items": [
+        {
+          "id": "item-1792179527584-z0x7",
+          "orderId": "order-1792179527584-vvqv",
+          "productId": "prod-1792179527472-40xw",
+          "productNameSnapshot": "Otomasyon Test Tostu",
+          "unitPriceSnapshot": 48,
+          "quantity": 3,
+          "lineTotal": 144
+        }
+      ]
+    },
+    {
+      "id": "order-1792179527519-y1ep",
+      "orderNumber": "KC-20261016-425",
+      "parentUserId": "user-1792179527438-q3pn",
+      "studentId": "student-1792179527463-f1z7",
+      "studentNameSnapshot": "Barış Test",
+      "studentClassSnapshot": "3. Sınıf / 3-C",
+      "schoolId": "school-1",
+      "orderDate": "12.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "delivered",
+      "subtotal": 96,
+      "totalAmount": 96,
+      "note": "Çok sıcak olsun.",
+      "deliveryCode": "8564",
+      "isVerifiedDelivery": true,
+      "createdAt": "2026-10-16T19:38:47.519Z",
+      "updatedAt": "2026-10-16T19:38:47.566Z",
+      "items": [
+        {
+          "id": "item-1792179527519-394t",
+          "orderId": "order-1792179527519-y1ep",
+          "productId": "prod-1792179527472-40xw",
+          "productNameSnapshot": "Otomasyon Test Tostu",
+          "unitPriceSnapshot": 48,
+          "quantity": 2,
+          "lineTotal": 96
+        }
+      ]
+    },
+    {
+      "id": "order-1792179516869-71ov",
+      "orderNumber": "KC-20261016-613",
+      "parentUserId": "user-1792179516822-pqwn",
+      "studentId": "student-1792179516856-tplx",
+      "studentNameSnapshot": "Ali Birinci",
+      "studentClassSnapshot": "4. Sınıf / 4-B",
+      "schoolId": "school-1",
+      "orderDate": "15.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "paid",
+      "orderStatus": "delivered",
+      "subtotal": 45,
+      "totalAmount": 45,
+      "note": "",
+      "deliveryCode": "3764",
+      "isVerifiedDelivery": true,
+      "createdAt": "2026-10-16T19:38:36.869Z",
+      "updatedAt": "2026-10-16T19:38:36.919Z",
+      "items": [
+        {
+          "id": "item-1792179516869-jcfe",
+          "orderId": "order-1792179516869-71ov",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 1,
+          "lineTotal": 45
+        }
+      ]
+    },
+    {
+      "id": "order-1792179512067-p2ks",
+      "orderNumber": "KC-20261016-433",
+      "parentUserId": "user-parent-1",
+      "studentId": "student-1",
+      "studentNameSnapshot": "Ali Yılmaz",
+      "studentClassSnapshot": "4. Sınıf / 4-B",
+      "schoolId": "school-1",
+      "orderDate": "20.10.2026",
+      "breakId": "break-1",
+      "breakNameSnapshot": "1. Teneffüs",
+      "orderType": "canteen",
+      "paymentStatus": "pending",
+      "orderStatus": "pending_payment",
+      "subtotal": 45,
+      "totalAmount": 45,
+      "note": "",
+      "deliveryCode": "3359",
+      "isVerifiedDelivery": false,
+      "createdAt": "2026-10-16T19:38:32.067Z",
+      "updatedAt": "2026-10-16T19:38:32.067Z",
+      "items": [
+        {
+          "id": "item-1792179512067-69hy",
+          "orderId": "order-1792179512067-p2ks",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 1,
+          "lineTotal": 45
+        }
+      ]
+    },
     {
       "id": "order-1791966572377-81up",
       "orderNumber": "KC-20261014-182",
@@ -1587,6 +1812,81 @@
   ],
   "donations": [
     {
+      "id": "don-1792179527617-z2f1",
+      "donationNumber": "DY-20261016-609",
+      "donorUserId": "user-1792179527438-q3pn",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "food_pool",
+      "paymentStatus": "paid",
+      "totalAmount": 90,
+      "note": "Afiyet olsun.",
+      "createdAt": "2026-10-16T19:38:47.618Z",
+      "items": [
+        {
+          "id": "don-item-1792179527618-euhj",
+          "donationId": "don-1792179527617-z2f1",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 2,
+          "allocatedQuantity": 1,
+          "deliveredQuantity": 1,
+          "remainingQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "don-1792179511873-05rz",
+      "donationNumber": "DY-20261016-736",
+      "donorUserId": "user-parent-1",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "education_support",
+      "paymentStatus": "paid",
+      "totalAmount": 400,
+      "note": "Eğitim kırtasiye desteği",
+      "createdAt": "2026-10-16T19:38:31.873Z",
+      "items": [
+        {
+          "id": "don-item-1792179511873-p3xf",
+          "donationId": "don-1792179511873-05rz",
+          "productId": "prod-5",
+          "productNameSnapshot": "Süzme Mercimek Çorbası & Ekmek",
+          "unitPriceSnapshot": 40,
+          "quantity": 10,
+          "allocatedQuantity": 0,
+          "deliveredQuantity": 1,
+          "remainingQuantity": 9
+        }
+      ]
+    },
+    {
+      "id": "don-1792179511854-t1xt",
+      "donationNumber": "DY-20261016-559",
+      "donorUserId": "user-parent-1",
+      "donorNameSnapshot": "Hayırsever Veli (Anonim)",
+      "schoolId": "school-1",
+      "donationType": "food_pool",
+      "paymentStatus": "paid",
+      "totalAmount": 450,
+      "note": "Öğrenci beslenmesi için bağış",
+      "createdAt": "2026-10-16T19:38:31.854Z",
+      "items": [
+        {
+          "id": "don-item-1792179511854-pqiq",
+          "donationId": "don-1792179511854-t1xt",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "unitPriceSnapshot": 45,
+          "quantity": 10,
+          "allocatedQuantity": 0,
+          "deliveredQuantity": 1,
+          "remainingQuantity": 9
+        }
+      ]
+    },
+    {
       "id": "don-1791966572413-bfly",
       "donationNumber": "DY-20261014-321",
       "donorUserId": "user-1791966572180-a8ye",
@@ -1605,8 +1905,8 @@
           "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
           "unitPriceSnapshot": 45,
           "quantity": 2,
-          "allocatedQuantity": 1,
-          "deliveredQuantity": 1,
+          "allocatedQuantity": 0,
+          "deliveredQuantity": 2,
           "remainingQuantity": 1
         }
       ]
@@ -1755,8 +2055,8 @@
           "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
           "unitPriceSnapshot": 45,
           "quantity": 5,
-          "allocatedQuantity": 3,
-          "deliveredQuantity": 5,
+          "allocatedQuantity": 2,
+          "deliveredQuantity": 6,
           "remainingQuantity": 0
         },
         {
@@ -2075,6 +2375,81 @@
       "paymentStatus": "success",
       "createdAt": "2026-10-14T08:29:32.420Z",
       "updatedAt": "2026-10-14T08:29:32.420Z"
+    },
+    {
+      "id": "pay-1792179511862",
+      "targetId": "don-1792179511854-t1xt",
+      "targetType": "donation",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179511862-4557",
+      "amount": 450,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "createdAt": "2026-10-16T19:38:31.862Z",
+      "updatedAt": "2026-10-16T19:38:31.862Z"
+    },
+    {
+      "id": "pay-1792179511880",
+      "targetId": "don-1792179511873-05rz",
+      "targetType": "donation",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179511880-1569",
+      "amount": 400,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "createdAt": "2026-10-16T19:38:31.880Z",
+      "updatedAt": "2026-10-16T19:38:31.880Z"
+    },
+    {
+      "id": "pay-1792179516880",
+      "targetId": "order-1792179516869-71ov",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179516880-4724",
+      "amount": 45,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "rawResponse": "APPROVED: **** **** **** 1234",
+      "createdAt": "2026-10-16T19:38:36.880Z",
+      "updatedAt": "2026-10-16T19:38:36.880Z"
+    },
+    {
+      "id": "pay-1792179527533",
+      "targetId": "order-1792179527519-y1ep",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179527533-7669",
+      "amount": 96,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "rawResponse": "APPROVED: **** **** **** 1234",
+      "createdAt": "2026-10-16T19:38:47.533Z",
+      "updatedAt": "2026-10-16T19:38:47.533Z"
+    },
+    {
+      "id": "pay-1792179527593",
+      "targetId": "order-1792179527584-vvqv",
+      "targetType": "order",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179527593-7743",
+      "amount": 144,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "rawResponse": "APPROVED: **** **** **** 1234",
+      "createdAt": "2026-10-16T19:38:47.593Z",
+      "updatedAt": "2026-10-16T19:38:47.593Z"
+    },
+    {
+      "id": "pay-1792179527624",
+      "targetId": "don-1792179527617-z2f1",
+      "targetType": "donation",
+      "paymentProvider": "simulation",
+      "providerReference": "SIM-1792179527624-9056",
+      "amount": 90,
+      "currency": "TRY",
+      "paymentStatus": "success",
+      "createdAt": "2026-10-16T19:38:47.624Z",
+      "updatedAt": "2026-10-16T19:38:47.624Z"
     }
   ],
   "orderStatusHistory": [
@@ -2506,9 +2881,132 @@
       "changedByRole": "parent",
       "changedAt": "2026-10-14T08:29:32.397Z",
       "note": "Durum paid_pending -> cancelled olarak güncellendi."
+    },
+    {
+      "id": "hist-1792179516883-p52q",
+      "orderId": "order-1792179516869-71ov",
+      "previousStatus": "pending_payment",
+      "newStatus": "paid_pending",
+      "changedByUserId": "user-1792179516822-pqwn",
+      "changedByName": "Veli Bir",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-16T19:38:36.883Z",
+      "note": "Ödeme başarıyla doğrulandı."
+    },
+    {
+      "id": "hist-1792179516890-1pkr",
+      "orderId": "order-1792179516869-71ov",
+      "previousStatus": "paid_pending",
+      "newStatus": "preparing",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:36.890Z",
+      "note": "Durum paid_pending -> preparing olarak güncellendi."
+    },
+    {
+      "id": "hist-1792179516901-hjm2",
+      "orderId": "order-1792179516869-71ov",
+      "previousStatus": "preparing",
+      "newStatus": "ready",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:36.901Z",
+      "note": "Durum preparing -> ready olarak güncellendi."
+    },
+    {
+      "id": "hist-1792179516919-cd60",
+      "orderId": "order-1792179516869-71ov",
+      "previousStatus": "ready",
+      "newStatus": "delivered",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:36.919Z",
+      "note": "Öğrenci teslimat koduyla doğrulandı."
+    },
+    {
+      "id": "hist-1792179527537-skfo",
+      "orderId": "order-1792179527519-y1ep",
+      "previousStatus": "pending_payment",
+      "newStatus": "paid_pending",
+      "changedByUserId": "user-1792179527438-q3pn",
+      "changedByName": "Test Veli Ayşe",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-16T19:38:47.537Z",
+      "note": "Ödeme başarıyla doğrulandı."
+    },
+    {
+      "id": "hist-1792179527545-ed3m",
+      "orderId": "order-1792179527519-y1ep",
+      "previousStatus": "paid_pending",
+      "newStatus": "preparing",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:47.545Z",
+      "note": "Durum paid_pending -> preparing olarak güncellendi."
+    },
+    {
+      "id": "hist-1792179527555-3vsa",
+      "orderId": "order-1792179527519-y1ep",
+      "previousStatus": "preparing",
+      "newStatus": "ready",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:47.555Z",
+      "note": "Durum preparing -> ready olarak güncellendi."
+    },
+    {
+      "id": "hist-1792179527566-tlfl",
+      "orderId": "order-1792179527519-y1ep",
+      "previousStatus": "ready",
+      "newStatus": "delivered",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changedByRole": "canteen",
+      "changedAt": "2026-10-16T19:38:47.566Z",
+      "note": "Öğrenci teslimat koduyla doğrulandı."
+    },
+    {
+      "id": "hist-1792179527596-wcx4",
+      "orderId": "order-1792179527584-vvqv",
+      "previousStatus": "pending_payment",
+      "newStatus": "paid_pending",
+      "changedByUserId": "user-1792179527438-q3pn",
+      "changedByName": "Test Veli Ayşe",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-16T19:38:47.596Z",
+      "note": "Ödeme başarıyla doğrulandı."
+    },
+    {
+      "id": "hist-1792179527602-yy0f",
+      "orderId": "order-1792179527584-vvqv",
+      "previousStatus": "paid_pending",
+      "newStatus": "cancelled",
+      "changedByUserId": "user-1792179527438-q3pn",
+      "changedByName": "Test Veli Ayşe",
+      "changedByRole": "parent",
+      "changedAt": "2026-10-16T19:38:47.602Z",
+      "note": "Durum paid_pending -> cancelled olarak güncellendi."
     }
   ],
   "donationDistributions": [
+    {
+      "id": "dist-1792179527633-58zd",
+      "schoolId": "school-1",
+      "donationItemId": "don-item-1792179527618-euhj",
+      "productId": "prod-1",
+      "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+      "donationType": "food_pool",
+      "quantity": 1,
+      "authorizedStaffId": "user-canteen-1",
+      "authorizedStaffName": "Mehmet Usta (Kantin Görevlisi)",
+      "notes": "Öğrenciye gizlilikle teslim edildi.",
+      "distributedAt": "2026-10-16T19:38:47.633Z"
+    },
     {
       "id": "dist-1791966572430-3pze",
       "schoolId": "school-1",
@@ -2576,6 +3074,325 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "log-1792179527636-5ozw",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "DONATION_DISTRIBUTED",
+      "entityType": "donation",
+      "entityId": "don-item-1792179527618-euhj",
+      "details": "1 adet Kaşarlı Tost (Tam Buğday) dağıtıldı. Yetkili: Mehmet Usta",
+      "timestamp": "2026-10-16T19:38:47.636Z"
+    },
+    {
+      "id": "log-1792179527609-aybl",
+      "actorUserId": "user-1792179527438-q3pn",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1792179527584-vvqv",
+      "details": "KC-20261016-350 durumu cancelled -> cancelled yapıldı.",
+      "timestamp": "2026-10-16T19:38:47.609Z"
+    },
+    {
+      "id": "log-1792179527587-ncn8",
+      "actorUserId": "user-1792179527438-q3pn",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1792179527584-vvqv",
+      "details": "Sipariş oluşturuldu: KC-20261016-350 (Barış Test, ₺144)",
+      "timestamp": "2026-10-16T19:38:47.587Z"
+    },
+    {
+      "id": "log-1792179527573-zo75",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_DELIVERED_VERIFIED",
+      "entityType": "order",
+      "entityId": "order-1792179527519-y1ep",
+      "details": "Sipariş teslimatı PIN koduyla doğrulandı: KC-20261016-425",
+      "timestamp": "2026-10-16T19:38:47.573Z"
+    },
+    {
+      "id": "log-1792179527558-ux5m",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1792179527519-y1ep",
+      "details": "KC-20261016-425 durumu ready -> ready yapıldı.",
+      "timestamp": "2026-10-16T19:38:47.558Z"
+    },
+    {
+      "id": "log-1792179527549-kq86",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1792179527519-y1ep",
+      "details": "KC-20261016-425 durumu preparing -> preparing yapıldı.",
+      "timestamp": "2026-10-16T19:38:47.549Z"
+    },
+    {
+      "id": "log-1792179527522-zdd1",
+      "actorUserId": "user-1792179527438-q3pn",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1792179527519-y1ep",
+      "details": "Sipariş oluşturuldu: KC-20261016-425 (Barış Test, ₺96)",
+      "timestamp": "2026-10-16T19:38:47.522Z"
+    },
+    {
+      "id": "log-1792179527497-ny4w",
+      "actorUserId": "user-admin-1",
+      "actorName": "Kemal Öztürk (Okul Müdürü)",
+      "actorRole": "admin",
+      "action": "SCHOOL_UPDATE",
+      "entityType": "school",
+      "entityId": "school-1",
+      "details": "Okul bilgileri güncellendi: Atatürk İlkokulu ve Ortaokulu (Güncel)",
+      "timestamp": "2026-10-16T19:38:47.497Z"
+    },
+    {
+      "id": "log-1792179527487-lfh0",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "PRODUCT_UPDATE",
+      "entityType": "product",
+      "entityId": "prod-1792179527472-40xw",
+      "details": "Ürün güncellendi: Otomasyon Test Tostu",
+      "timestamp": "2026-10-16T19:38:47.487Z"
+    },
+    {
+      "id": "log-1792179527475-nir6",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "PRODUCT_CREATE",
+      "entityType": "product",
+      "entityId": "prod-1792179527472-40xw",
+      "details": "Yeni ürün eklendi: Otomasyon Test Tostu (₺45, Stok: 20)",
+      "timestamp": "2026-10-16T19:38:47.475Z"
+    },
+    {
+      "id": "log-1792179527455-78d0",
+      "actorUserId": "user-1792179527438-q3pn",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "PASSWORD_RESET",
+      "entityType": "user",
+      "entityId": "user-1792179527438-q3pn",
+      "details": "Kullanıcı şifresini sıfırladı: test.veli.1792179527423@kantincep.com",
+      "timestamp": "2026-10-16T19:38:47.455Z"
+    },
+    {
+      "id": "log-1792179527440-1v09",
+      "actorUserId": "user-1792179527438-q3pn",
+      "actorName": "Test Veli Ayşe",
+      "actorRole": "parent",
+      "action": "USER_REGISTER",
+      "entityType": "user",
+      "entityId": "user-1792179527438-q3pn",
+      "details": "Yeni veli kaydı oluşturuldu: test.veli.1792179527423@kantincep.com",
+      "timestamp": "2026-10-16T19:38:47.440Z"
+    },
+    {
+      "id": "log-1792179516925-d8hi",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_DELIVERED_VERIFIED",
+      "entityType": "order",
+      "entityId": "order-1792179516869-71ov",
+      "details": "Sipariş teslimatı PIN koduyla doğrulandı: KC-20261016-613",
+      "timestamp": "2026-10-16T19:38:36.925Z"
+    },
+    {
+      "id": "log-1792179516903-cu5m",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1792179516869-71ov",
+      "details": "KC-20261016-613 durumu ready -> ready yapıldı.",
+      "timestamp": "2026-10-16T19:38:36.903Z"
+    },
+    {
+      "id": "log-1792179516893-v7ka",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "ORDER_STATUS_UPDATE",
+      "entityType": "order",
+      "entityId": "order-1792179516869-71ov",
+      "details": "KC-20261016-613 durumu preparing -> preparing yapıldı.",
+      "timestamp": "2026-10-16T19:38:36.893Z"
+    },
+    {
+      "id": "log-1792179516872-t9vm",
+      "actorUserId": "user-1792179516822-pqwn",
+      "actorName": "Veli Bir",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1792179516869-71ov",
+      "details": "Sipariş oluşturuldu: KC-20261016-613 (Ali Birinci, ₺45)",
+      "timestamp": "2026-10-16T19:38:36.872Z"
+    },
+    {
+      "id": "log-1792179516844-38mq",
+      "actorUserId": "user-1792179516842-umlz",
+      "actorName": "Veli İki",
+      "actorRole": "parent",
+      "action": "USER_REGISTER",
+      "entityType": "user",
+      "entityId": "user-1792179516842-umlz",
+      "details": "Yeni veli kaydı oluşturuldu: veli2_1792179516734@test.com",
+      "timestamp": "2026-10-16T19:38:36.844Z"
+    },
+    {
+      "id": "log-1792179516825-bajs",
+      "actorUserId": "user-1792179516822-pqwn",
+      "actorName": "Veli Bir",
+      "actorRole": "parent",
+      "action": "USER_REGISTER",
+      "entityType": "user",
+      "entityId": "user-1792179516822-pqwn",
+      "details": "Yeni veli kaydı oluşturuldu: veli1_1792179516734@test.com",
+      "timestamp": "2026-10-16T19:38:36.825Z"
+    },
+    {
+      "id": "log-1792179512070-rht2",
+      "actorUserId": "user-parent-1",
+      "actorName": "Ayşe Yılmaz",
+      "actorRole": "parent",
+      "action": "ORDER_CREATE",
+      "entityType": "order",
+      "entityId": "order-1792179512067-p2ks",
+      "details": "Sipariş oluşturuldu: KC-20261016-433 (Ali Yılmaz, ₺45)",
+      "timestamp": "2026-10-16T19:38:32.070Z"
+    },
+    {
+      "id": "log-1792179512058-edpp",
+      "actorUserId": "user-admin-1",
+      "actorName": "Kemal Öztürk (Okul Müdürü)",
+      "actorRole": "admin",
+      "action": "ADMIN_UPDATE_USER_STATUS",
+      "entityType": "user",
+      "entityId": "user-teacher-1792179511819-1l16",
+      "details": "Kullanıcı durumu \"suspended\" yapıldı: Öğretmen İki (İzolasyon Testi)",
+      "timestamp": "2026-10-16T19:38:32.058Z"
+    },
+    {
+      "id": "log-1792179512015-tn2y",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CANCEL_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511986-vla4",
+      "details": "Destek tahsisi iptal edildi. Gerekçe: Öğrenci nakil oldu",
+      "timestamp": "2026-10-16T19:38:32.015Z"
+    },
+    {
+      "id": "log-1792179512006-u7og",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CREATE_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511986-vla4",
+      "details": "Öğretmen destek tahsisi yaptı: KC-THS-202610-3C7F (food_pool)",
+      "timestamp": "2026-10-16T19:38:32.006Z"
+    },
+    {
+      "id": "log-1792179511973-3uhd",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "CANTEEN_DELIVER_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511921-we7q",
+      "details": "Kantinci destek teslimatını gerçekleştirdi: KC-THS-202610-B93F",
+      "timestamp": "2026-10-16T19:38:31.973Z"
+    },
+    {
+      "id": "log-1792179511959-krxn",
+      "actorUserId": "user-canteen-1",
+      "actorName": "Mehmet Usta",
+      "actorRole": "canteen",
+      "action": "CANTEEN_DELIVER_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511892-wsag",
+      "details": "Kantinci destek teslimatını gerçekleştirdi: KC-THS-202610-19C0",
+      "timestamp": "2026-10-16T19:38:31.959Z"
+    },
+    {
+      "id": "log-1792179511939-puvr",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CREATE_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511921-we7q",
+      "details": "Öğretmen destek tahsisi yaptı: KC-THS-202610-B93F (education_support)",
+      "timestamp": "2026-10-16T19:38:31.939Z"
+    },
+    {
+      "id": "log-1792179511912-2gpq",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CREATE_ALLOCATION",
+      "entityType": "supportAllocation",
+      "entityId": "alloc-1792179511892-wsag",
+      "details": "Öğretmen destek tahsisi yaptı: KC-THS-202610-19C0 (food_pool)",
+      "timestamp": "2026-10-16T19:38:31.912Z"
+    },
+    {
+      "id": "log-1792179511847-90gl",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CREATE_STUDENT_NEED",
+      "entityType": "studentNeed",
+      "entityId": "need-1792179511843-i6t6",
+      "details": "Öğretmen yeni ihtiyaç kaydı açtı: Murat Arslan (Kırtasiye İhtiyacı) (KC-IHT-0549A6)",
+      "timestamp": "2026-10-16T19:38:31.847Z"
+    },
+    {
+      "id": "log-1792179511835-1jhd",
+      "actorUserId": "user-teacher-1",
+      "actorName": "Zehra Aydın (Danışman Öğretmen)",
+      "actorRole": "teacher",
+      "action": "TEACHER_CREATE_STUDENT_NEED",
+      "entityType": "studentNeed",
+      "entityId": "need-1792179511831-18om",
+      "details": "Öğretmen yeni ihtiyaç kaydı açtı: Canan Özdemir (Gıda İhtiyacı) (KC-IHT-C559A3)",
+      "timestamp": "2026-10-16T19:38:31.836Z"
+    },
+    {
+      "id": "log-1792179511822-h8px",
+      "actorUserId": "user-admin-1",
+      "actorName": "Kemal Öztürk (Okul Müdürü)",
+      "actorRole": "admin",
+      "action": "MANAGER_CREATE_TEACHER",
+      "entityType": "teacher",
+      "entityId": "user-teacher-1792179511819-1l16",
+      "details": "Müdür yeni öğretmen hesabı oluşturdu: Öğretmen İki (İzolasyon Testi) (ogretmen2_1792179511796@okul.meb.gov.tr)",
+      "timestamp": "2026-10-16T19:38:31.822Z"
+    },
     {
       "id": "log-1791966572433-ddg3",
       "actorUserId": "user-canteen-1",
@@ -4119,6 +4936,262 @@
   ],
   "notifications": [
     {
+      "id": "notif-1792179527627-qzuv",
+      "userId": "user-1792179527438-q3pn",
+      "title": "İyiliğiniz İçin Teşekkürler! 🌟",
+      "message": "₺90 tutarındaki Dayanışma Havuzu bağışınız alındı.",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:47.627Z"
+    },
+    {
+      "id": "notif-1792179527602-lx41",
+      "userId": "user-1792179527438-q3pn",
+      "title": "Sipariş İptal Edildi ❌",
+      "message": "KC-20261016-350 numaralı sipariş iptal edildi. İade tutarı bakiyenize/kartınıza yansıtılacaktır.",
+      "type": "order",
+      "linkUrl": "/orders/order-1792179527584-vvqv",
+      "orderId": "order-1792179527584-vvqv",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:47.602Z"
+    },
+    {
+      "id": "notif-1792179527566-0gnq",
+      "userId": "user-1792179527438-q3pn",
+      "title": "KantinCep – Teslimat Bilgilendirmesi",
+      "message": "Beslenme siparişiniz öğrenciye teslim edilmiştir. İyi günler dileriz.",
+      "type": "delivery",
+      "linkUrl": "/orders/order-1792179527519-y1ep",
+      "orderId": "order-1792179527519-y1ep",
+      "deliveryEventId": "deliv-order-order-1792179527519-y1ep",
+      "studentNameSnapshot": "Barış Test",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:47.566Z"
+    },
+    {
+      "id": "notif-1792179516919-42ht",
+      "userId": "user-1792179516822-pqwn",
+      "title": "KantinCep – Teslimat Bilgilendirmesi",
+      "message": "Beslenme siparişiniz öğrenciye teslim edilmiştir. İyi günler dileriz.",
+      "type": "delivery",
+      "linkUrl": "/orders/order-1792179516869-71ov",
+      "orderId": "order-1792179516869-71ov",
+      "deliveryEventId": "deliv-order-order-1792179516869-71ov",
+      "studentNameSnapshot": "Ali Birinci",
+      "read": true,
+      "createdAt": "2026-10-16T19:38:36.919Z"
+    },
+    {
+      "id": "notif-1792179512000-el21",
+      "userId": "user-canteen-1791906149511-ju39",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:32.000Z"
+    },
+    {
+      "id": "notif-1792179511998-h7ql",
+      "userId": "user-canteen-1791906128225-ua9x",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.998Z"
+    },
+    {
+      "id": "notif-1792179511995-uqlw",
+      "userId": "user-canteen-1791906094114-8xeb",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.995Z"
+    },
+    {
+      "id": "notif-1792179511992-myow",
+      "userId": "user-canteen-1791906035093-9geu",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.992Z"
+    },
+    {
+      "id": "notif-1792179511990-8wdf",
+      "userId": "user-canteen-1791905945666-omn0",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.990Z"
+    },
+    {
+      "id": "notif-1792179511986-lbje",
+      "userId": "user-canteen-1",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-3C7F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.986Z"
+    },
+    {
+      "id": "notif-1792179511967-2gsw",
+      "userId": "user-teacher-1",
+      "title": "Eğitim Desteği – Teslimat Bilgilendirmesi",
+      "message": "Eğitim Desteği kapsamında tahsis edilen materyal (1x Süzme Mercimek Çorbası & Ekmek) öğrenciye teslim edildi.",
+      "type": "support_delivery",
+      "linkUrl": "/teacher/allocations?id=alloc-1792179511921-we7q",
+      "deliveryEventId": "deliv-alloc-alloc-1792179511921-we7q",
+      "allocationId": "alloc-1792179511921-we7q",
+      "studentNeedId": "need-1792179511843-i6t6",
+      "supportType": "education_support",
+      "itemsSummary": "1x Süzme Mercimek Çorbası & Ekmek",
+      "read": true,
+      "createdAt": "2026-10-16T19:38:31.967Z"
+    },
+    {
+      "id": "notif-1792179511954-1fs1",
+      "userId": "user-teacher-1",
+      "title": "Dayanışma Havuzu – Teslimat Bilgilendirmesi",
+      "message": "Dayanışma Havuzu kapsamında tahsis edilen destek ürünü (1x Kaşarlı Tost (Tam Buğday)) öğrenciye teslim edildi.",
+      "type": "support_delivery",
+      "linkUrl": "/teacher/allocations?id=alloc-1792179511892-wsag",
+      "deliveryEventId": "deliv-alloc-alloc-1792179511892-wsag",
+      "allocationId": "alloc-1792179511892-wsag",
+      "studentNeedId": "need-1792179511831-18om",
+      "supportType": "food_pool",
+      "itemsSummary": "1x Kaşarlı Tost (Tam Buğday)",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.954Z"
+    },
+    {
+      "id": "notif-1792179511934-yp0h",
+      "userId": "user-canteen-1791906149511-ju39",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.934Z"
+    },
+    {
+      "id": "notif-1792179511931-4iw6",
+      "userId": "user-canteen-1791906128225-ua9x",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.931Z"
+    },
+    {
+      "id": "notif-1792179511929-jhlg",
+      "userId": "user-canteen-1791906094114-8xeb",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.929Z"
+    },
+    {
+      "id": "notif-1792179511926-p02a",
+      "userId": "user-canteen-1791906035093-9geu",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.926Z"
+    },
+    {
+      "id": "notif-1792179511924-63vw",
+      "userId": "user-canteen-1791905945666-omn0",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.924Z"
+    },
+    {
+      "id": "notif-1792179511921-4dcc",
+      "userId": "user-canteen-1",
+      "title": "Yeni Destek Tahsisi (Eğitim Desteği) 🎁",
+      "message": "Murat Arslan (Kırtasiye İhtiyacı) (3. Sınıf/3-A) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-B93F",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.921Z"
+    },
+    {
+      "id": "notif-1792179511907-9yh3",
+      "userId": "user-canteen-1791906149511-ju39",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.907Z"
+    },
+    {
+      "id": "notif-1792179511904-ch26",
+      "userId": "user-canteen-1791906128225-ua9x",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.904Z"
+    },
+    {
+      "id": "notif-1792179511901-ctj4",
+      "userId": "user-canteen-1791906094114-8xeb",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.901Z"
+    },
+    {
+      "id": "notif-1792179511898-9bem",
+      "userId": "user-canteen-1791906035093-9geu",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.898Z"
+    },
+    {
+      "id": "notif-1792179511896-yhpv",
+      "userId": "user-canteen-1791905945666-omn0",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.896Z"
+    },
+    {
+      "id": "notif-1792179511893-lw5i",
+      "userId": "user-canteen-1",
+      "title": "Yeni Destek Tahsisi (Dayanışma Havuzu) 🎁",
+      "message": "Canan Özdemir (Gıda İhtiyacı) (4. Sınıf/4-B) için yeni destek tahsisi yapıldı. Tahsis No: KC-THS-202610-19C0",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.893Z"
+    },
+    {
+      "id": "notif-1792179511883-qp3m",
+      "userId": "user-parent-1",
+      "title": "İyiliğiniz İçin Teşekkürler! 🌟",
+      "message": "₺400 tutarındaki Eğitime Destek bağışınız alındı.",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.883Z"
+    },
+    {
+      "id": "notif-1792179511865-3ywh",
+      "userId": "user-parent-1",
+      "title": "İyiliğiniz İçin Teşekkürler! 🌟",
+      "message": "₺450 tutarındaki Dayanışma Havuzu bağışınız alındı.",
+      "type": "donation",
+      "read": false,
+      "createdAt": "2026-10-16T19:38:31.865Z"
+    },
+    {
       "id": "notif-1791966572423-dvty",
       "userId": "user-1791966572180-a8ye",
       "title": "İyiliğiniz İçin Teşekkürler! 🌟",
@@ -4936,6 +6009,19 @@
       "createdByManagerId": "user-admin-1",
       "createdAt": "2026-10-14T08:29:16.330Z",
       "updatedAt": "2026-10-14T08:29:16.330Z"
+    },
+    {
+      "id": "tprof-1792179511819",
+      "authUserId": "user-teacher-1792179511819-1l16",
+      "schoolId": "school-1",
+      "fullName": "Öğretmen İki (İzolasyon Testi)",
+      "email": "ogretmen2_1792179511796@okul.meb.gov.tr",
+      "branch": "Fen Bilgisi & Rehberlik",
+      "accountStatus": "active",
+      "mustChangePassword": true,
+      "createdByManagerId": "user-admin-1",
+      "createdAt": "2026-10-16T19:38:31.819Z",
+      "updatedAt": "2026-10-16T19:38:31.819Z"
     }
   ],
   "canteenProfiles": [
@@ -5029,6 +6115,38 @@
     }
   ],
   "studentNeeds": [
+    {
+      "id": "need-1792179511843-i6t6",
+      "schoolId": "school-1",
+      "studentReferenceId": "STU-STAT-1840",
+      "studentName": "Murat Arslan (Kırtasiye İhtiyacı)",
+      "grade": "3. Sınıf",
+      "classroom": "3-A",
+      "needCodeReference": "KC-IHT-0549A6",
+      "needType": "stationery",
+      "needDescription": "Defter ve kalem seti",
+      "createdByTeacherId": "user-teacher-1",
+      "createdByTeacherName": "Zehra Aydın (Danışman Öğretmen)",
+      "status": "active",
+      "createdAt": "2026-10-16T19:38:31.843Z",
+      "updatedAt": "2026-10-16T19:38:31.843Z"
+    },
+    {
+      "id": "need-1792179511831-18om",
+      "schoolId": "school-1",
+      "studentReferenceId": "STU-FOOD-1827",
+      "studentName": "Canan Özdemir (Gıda İhtiyacı)",
+      "grade": "4. Sınıf",
+      "classroom": "4-B",
+      "needCodeReference": "KC-IHT-C559A3",
+      "needType": "food",
+      "needDescription": "Beslenme desteği",
+      "createdByTeacherId": "user-teacher-1",
+      "createdByTeacherName": "Zehra Aydın (Danışman Öğretmen)",
+      "status": "active",
+      "createdAt": "2026-10-16T19:38:31.831Z",
+      "updatedAt": "2026-10-16T19:38:31.831Z"
+    },
     {
       "id": "need-1791966556356-kab1",
       "schoolId": "school-1",
@@ -5144,6 +6262,24 @@
   ],
   "studentNeedCodes": [
     {
+      "id": "code-1792179511844",
+      "schoolId": "school-1",
+      "studentNeedId": "need-1792179511843-i6t6",
+      "needCode": "KC-IHT-0549A6",
+      "codeHash": "dd18d62ef57533f377b44917695401add5f13b88fa224ef0b59284f22cda9960",
+      "codeStatus": "active",
+      "createdAt": "2026-10-16T19:38:31.843Z"
+    },
+    {
+      "id": "code-1792179511831",
+      "schoolId": "school-1",
+      "studentNeedId": "need-1792179511831-18om",
+      "needCode": "KC-IHT-C559A3",
+      "codeHash": "d7230b1951942d932f4b63eaa3423abd52a2aebc4ceae1772b09fe5787770b55",
+      "codeStatus": "active",
+      "createdAt": "2026-10-16T19:38:31.831Z"
+    },
+    {
       "id": "code-1791966556356",
       "schoolId": "school-1",
       "studentNeedId": "need-1791966556356-kab1",
@@ -5208,6 +6344,108 @@
     }
   ],
   "supportAllocations": [
+    {
+      "id": "alloc-1792179511986-vla4",
+      "schoolId": "school-1",
+      "studentNeedId": "need-1792179511831-18om",
+      "studentNameSnapshot": "Canan Özdemir (Gıda İhtiyacı)",
+      "studentClassSnapshot": "4. Sınıf / 4-B",
+      "allocationNumber": "KC-THS-202610-3C7F",
+      "needCodeReference": "KC-IHT-C559A3",
+      "supportType": "food_pool",
+      "sourceType": "parent_donation_pool",
+      "assignedByTeacherId": "user-teacher-1",
+      "assignedByTeacherName": "Zehra Aydın (Danışman Öğretmen)",
+      "status": "cancelled",
+      "justificationNote": "İptal testi",
+      "validUntil": "Bugün",
+      "createdAt": "2026-10-16T19:38:31.986Z",
+      "updatedAt": "2026-10-16T19:38:32.012Z",
+      "items": [
+        {
+          "id": "item-alloc-1792179511986-chhm",
+          "allocationId": "alloc-1792179511986-vla4",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "quantityAllocated": 1,
+          "quantityDelivered": 0,
+          "quantityRemaining": 1,
+          "unitPriceSnapshot": 45,
+          "createdAt": "2026-10-16T19:38:31.986Z"
+        }
+      ],
+      "cancelledReason": "Öğrenci nakil oldu",
+      "cancelledAt": "2026-10-16T19:38:32.012Z",
+      "cancelledByUserId": "user-teacher-1"
+    },
+    {
+      "id": "alloc-1792179511921-we7q",
+      "schoolId": "school-1",
+      "studentNeedId": "need-1792179511843-i6t6",
+      "studentNameSnapshot": "Murat Arslan (Kırtasiye İhtiyacı)",
+      "studentClassSnapshot": "3. Sınıf / 3-A",
+      "allocationNumber": "KC-THS-202610-B93F",
+      "needCodeReference": "KC-IHT-0549A6",
+      "supportType": "education_support",
+      "sourceType": "parent_education_support",
+      "assignedByTeacherId": "user-teacher-1",
+      "assignedByTeacherName": "Zehra Aydın (Danışman Öğretmen)",
+      "status": "fully_delivered",
+      "justificationNote": "Okul açılışı kırtasiye seti",
+      "validUntil": "Bugün",
+      "createdAt": "2026-10-16T19:38:31.921Z",
+      "updatedAt": "2026-10-16T19:38:31.967Z",
+      "items": [
+        {
+          "id": "item-alloc-1792179511921-dbr7",
+          "allocationId": "alloc-1792179511921-we7q",
+          "productId": "prod-5",
+          "productNameSnapshot": "Süzme Mercimek Çorbası & Ekmek",
+          "quantityAllocated": 1,
+          "quantityDelivered": 1,
+          "quantityRemaining": 0,
+          "unitPriceSnapshot": 40,
+          "createdAt": "2026-10-16T19:38:31.921Z"
+        }
+      ],
+      "deliveredAt": "2026-10-16T19:38:31.967Z",
+      "deliveredByCanteenUserId": "user-canteen-1",
+      "deliveredByCanteenName": "Mehmet Usta"
+    },
+    {
+      "id": "alloc-1792179511892-wsag",
+      "schoolId": "school-1",
+      "studentNeedId": "need-1792179511831-18om",
+      "studentNameSnapshot": "Canan Özdemir (Gıda İhtiyacı)",
+      "studentClassSnapshot": "4. Sınıf / 4-B",
+      "allocationNumber": "KC-THS-202610-19C0",
+      "needCodeReference": "KC-IHT-C559A3",
+      "supportType": "food_pool",
+      "sourceType": "parent_donation_pool",
+      "assignedByTeacherId": "user-teacher-1",
+      "assignedByTeacherName": "Zehra Aydın (Danışman Öğretmen)",
+      "status": "fully_delivered",
+      "justificationNote": "Haftalık beslenme desteği",
+      "validUntil": "Bugün",
+      "createdAt": "2026-10-16T19:38:31.892Z",
+      "updatedAt": "2026-10-16T19:38:31.953Z",
+      "items": [
+        {
+          "id": "item-alloc-1792179511893-r6cp",
+          "allocationId": "alloc-1792179511892-wsag",
+          "productId": "prod-1",
+          "productNameSnapshot": "Kaşarlı Tost (Tam Buğday)",
+          "quantityAllocated": 1,
+          "quantityDelivered": 1,
+          "quantityRemaining": 0,
+          "unitPriceSnapshot": 45,
+          "createdAt": "2026-10-16T19:38:31.892Z"
+        }
+      ],
+      "deliveredAt": "2026-10-16T19:38:31.953Z",
+      "deliveredByCanteenUserId": "user-canteen-1",
+      "deliveredByCanteenName": "Mehmet Usta"
+    },
     {
       "id": "alloc-1791966556519-cxmq",
       "schoolId": "school-1",
@@ -5584,6 +6822,30 @@
   ],
   "supportDeliveries": [
     {
+      "id": "deliv-1792179511967",
+      "allocationId": "alloc-1792179511921-we7q",
+      "schoolId": "school-1",
+      "deliveredByCanteenUserId": "user-canteen-1",
+      "deliveredByCanteenName": "Mehmet Usta",
+      "verificationReference": "KC-IHT-0549A6",
+      "deliveryStatus": "complete",
+      "quantityDelivered": 1,
+      "deliveredAt": "2026-10-16T19:38:31.967Z",
+      "createdAt": "2026-10-16T19:38:31.967Z"
+    },
+    {
+      "id": "deliv-1792179511954",
+      "allocationId": "alloc-1792179511892-wsag",
+      "schoolId": "school-1",
+      "deliveredByCanteenUserId": "user-canteen-1",
+      "deliveredByCanteenName": "Mehmet Usta",
+      "verificationReference": "KC-IHT-C559A3",
+      "deliveryStatus": "complete",
+      "quantityDelivered": 1,
+      "deliveredAt": "2026-10-16T19:38:31.953Z",
+      "createdAt": "2026-10-16T19:38:31.953Z"
+    },
+    {
       "id": "deliv-1791966556496",
       "allocationId": "alloc-1791966556442-0g16",
       "schoolId": "school-1",
@@ -5801,6 +7063,66 @@
       "changedByName": "Zehra Aydın (Danışman Öğretmen)",
       "changeReason": "Öğrenci nakil oldu",
       "changedAt": "2026-10-14T08:29:16.543Z"
+    },
+    {
+      "id": "shist-1792179511893",
+      "allocationId": "alloc-1792179511892-wsag",
+      "previousStatus": "product_allocated",
+      "newStatus": "ready_for_delivery",
+      "changedByUserId": "user-teacher-1",
+      "changedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "changeReason": "Tahsis oluşturuldu ve kantin görevlisine teslimat için iletildi.",
+      "changedAt": "2026-10-16T19:38:31.892Z"
+    },
+    {
+      "id": "shist-1792179511921",
+      "allocationId": "alloc-1792179511921-we7q",
+      "previousStatus": "product_allocated",
+      "newStatus": "ready_for_delivery",
+      "changedByUserId": "user-teacher-1",
+      "changedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "changeReason": "Tahsis oluşturuldu ve kantin görevlisine teslimat için iletildi.",
+      "changedAt": "2026-10-16T19:38:31.921Z"
+    },
+    {
+      "id": "shist-1792179511954",
+      "allocationId": "alloc-1792179511892-wsag",
+      "previousStatus": "ready_for_delivery",
+      "newStatus": "fully_delivered",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changeReason": "İhtiyaç kodu (KC-IHT-C559A3) doğrulanarak teslim edildi.",
+      "changedAt": "2026-10-16T19:38:31.953Z"
+    },
+    {
+      "id": "shist-1792179511967",
+      "allocationId": "alloc-1792179511921-we7q",
+      "previousStatus": "ready_for_delivery",
+      "newStatus": "fully_delivered",
+      "changedByUserId": "user-canteen-1",
+      "changedByName": "Mehmet Usta",
+      "changeReason": "İhtiyaç kodu (KC-IHT-0549A6) doğrulanarak teslim edildi.",
+      "changedAt": "2026-10-16T19:38:31.967Z"
+    },
+    {
+      "id": "shist-1792179511986",
+      "allocationId": "alloc-1792179511986-vla4",
+      "previousStatus": "product_allocated",
+      "newStatus": "ready_for_delivery",
+      "changedByUserId": "user-teacher-1",
+      "changedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "changeReason": "Tahsis oluşturuldu ve kantin görevlisine teslimat için iletildi.",
+      "changedAt": "2026-10-16T19:38:31.986Z"
+    },
+    {
+      "id": "shist-1792179512012",
+      "allocationId": "alloc-1792179511986-vla4",
+      "previousStatus": "ready_for_delivery",
+      "newStatus": "cancelled",
+      "changedByUserId": "user-teacher-1",
+      "changedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "changeReason": "Öğrenci nakil oldu",
+      "changedAt": "2026-10-16T19:38:32.012Z"
     }
   ],
   "inventoryMovements": [
@@ -6024,6 +7346,84 @@
       "performedByUserId": "user-teacher-1",
       "performedByName": "Zehra Aydın (Danışman Öğretmen)",
       "createdAt": "2026-10-14T08:29:16.543Z"
+    },
+    {
+      "id": "inv-1792179511893-17lf",
+      "schoolId": "school-1",
+      "productId": "prod-1",
+      "productName": "Kaşarlı Tost (Tam Buğday)",
+      "movementType": "allocation_reserved",
+      "sourceType": "parent_donation_pool",
+      "sourceReferenceId": "alloc-1792179511892-wsag",
+      "quantity": 1,
+      "performedByUserId": "user-teacher-1",
+      "performedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "createdAt": "2026-10-16T19:38:31.892Z"
+    },
+    {
+      "id": "inv-1792179511921-jtff",
+      "schoolId": "school-1",
+      "productId": "prod-5",
+      "productName": "Süzme Mercimek Çorbası & Ekmek",
+      "movementType": "allocation_reserved",
+      "sourceType": "parent_education_support",
+      "sourceReferenceId": "alloc-1792179511921-we7q",
+      "quantity": 1,
+      "performedByUserId": "user-teacher-1",
+      "performedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "createdAt": "2026-10-16T19:38:31.921Z"
+    },
+    {
+      "id": "inv-1792179511954-w0je",
+      "schoolId": "school-1",
+      "productId": "prod-1",
+      "productName": "Kaşarlı Tost (Tam Buğday)",
+      "movementType": "allocation_delivered",
+      "sourceType": "parent_donation_pool",
+      "sourceReferenceId": "alloc-1792179511892-wsag",
+      "quantity": 1,
+      "performedByUserId": "user-canteen-1",
+      "performedByName": "Mehmet Usta",
+      "createdAt": "2026-10-16T19:38:31.953Z"
+    },
+    {
+      "id": "inv-1792179511967-jwwv",
+      "schoolId": "school-1",
+      "productId": "prod-5",
+      "productName": "Süzme Mercimek Çorbası & Ekmek",
+      "movementType": "allocation_delivered",
+      "sourceType": "parent_education_support",
+      "sourceReferenceId": "alloc-1792179511921-we7q",
+      "quantity": 1,
+      "performedByUserId": "user-canteen-1",
+      "performedByName": "Mehmet Usta",
+      "createdAt": "2026-10-16T19:38:31.967Z"
+    },
+    {
+      "id": "inv-1792179511986-hjk9",
+      "schoolId": "school-1",
+      "productId": "prod-1",
+      "productName": "Kaşarlı Tost (Tam Buğday)",
+      "movementType": "allocation_reserved",
+      "sourceType": "parent_donation_pool",
+      "sourceReferenceId": "alloc-1792179511986-vla4",
+      "quantity": 1,
+      "performedByUserId": "user-teacher-1",
+      "performedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "createdAt": "2026-10-16T19:38:31.986Z"
+    },
+    {
+      "id": "inv-1792179512012-wsxk",
+      "schoolId": "school-1",
+      "productId": "prod-1",
+      "productName": "Kaşarlı Tost (Tam Buğday)",
+      "movementType": "allocation_cancelled",
+      "sourceType": "parent_donation_pool",
+      "sourceReferenceId": "alloc-1792179511986-vla4",
+      "quantity": 1,
+      "performedByUserId": "user-teacher-1",
+      "performedByName": "Zehra Aydın (Danışman Öğretmen)",
+      "createdAt": "2026-10-16T19:38:32.012Z"
     }
   ],
   "pushSubscriptions": []

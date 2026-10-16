@@ -84,12 +84,29 @@ interface DatabaseSchema {
   pushSubscriptions: PushSubscriptionRecord[];
 }
 
-const DB_DIR = path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DB_DIR, 'kantincep_db.json');
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL_ENV
+);
 
-// Ensure database directory exists
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+// In serverless environments (e.g. Vercel), project root is read-only.
+// Writable storage is in /tmp.
+const DB_DIR = isServerless
+  ? path.resolve('/tmp', 'data')
+  : path.resolve(process.cwd(), 'data');
+
+const DB_FILE = path.join(DB_DIR, 'kantincep_db.json');
+const SEED_FILE = path.resolve(process.cwd(), 'data', 'kantincep_db.json');
+
+// Ensure database directory exists (safe for serverless and local)
+try {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[DB] Could not create DB_DIR:', e);
 }
 
 function getInitialSeedData(): DatabaseSchema {
@@ -1018,6 +1035,18 @@ class Database {
 
   private readFromDisk(): DatabaseSchema {
     try {
+      if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+      }
+
+      if (isServerless && !fs.existsSync(DB_FILE) && fs.existsSync(SEED_FILE)) {
+        try {
+          fs.copyFileSync(SEED_FILE, DB_FILE);
+        } catch (copyErr) {
+          console.warn('[DB] Could not copy seed file to /tmp:', copyErr);
+        }
+      }
+
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
@@ -1082,6 +1111,9 @@ class Database {
 
   private writeToDisk(dataToSave?: DatabaseSchema) {
     try {
+      if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+      }
       const payload = dataToSave || this.data;
       const tempPath = `${DB_FILE}.tmp.${Date.now()}`;
       fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2), 'utf-8');
