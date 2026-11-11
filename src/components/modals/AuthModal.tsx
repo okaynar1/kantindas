@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User as UserIcon, Shield, Sparkles, Check, AlertCircle } from 'lucide-react';
+import { X, Lock, Mail, User as UserIcon, Shield, Sparkles, Check, AlertCircle, School as SchoolIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { api } from '../../services/api.ts';
 import { KvkkModal } from './KvkkModal.tsx';
@@ -8,7 +8,7 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'login' | 'register' | 'quick' | 'reset';
-  initialRole?: 'teacher' | 'manager' | 'canteen' | 'parent';
+  initialRole?: 'teacher' | 'manager' | 'canteen' | 'parent' | 'admin';
   prefilledEmail?: string;
 }
 
@@ -25,6 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Form states
   const [email, setEmail] = useState(() => {
     if (prefilledEmail) return prefilledEmail;
+    if (initialRole === 'admin') return 'yonetici@kantincep.com';
     if (initialRole === 'teacher') return 'ogretmen@kantincep.com';
     if (initialRole === 'manager') return 'mudur@kantincep.com';
     if (initialRole === 'canteen') return 'kantin@kantincep.com';
@@ -35,6 +36,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return '';
   });
   const [fullName, setFullName] = useState('');
+  const [schoolCode, setSchoolCode] = useState('ATATURK01');
   const [passwordRepeat, setPasswordRepeat] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -75,17 +77,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setLoading(true);
     try {
-      await register({
+      const res = await register({
         fullName,
         email,
         password,
         passwordRepeat,
         kvkkConsent,
+        schoolCode: schoolCode.trim() ? schoolCode.trim().toUpperCase() : undefined,
       });
-      setSuccessMsg('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+
+      if (res?.emailConfirmationRequired) {
+        setSuccessMsg(res.message || 'Kaydınız başarıyla oluşturuldu! Lütfen e-posta kutunuza gelen doğrulama bağlantısına tıklayarak hesabınızı onaylayınız.');
+        setTimeout(() => {
+          setTab('login');
+          setSuccessMsg(null);
+        }, 5000);
+      } else {
+        setSuccessMsg(res?.message || 'Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      }
     } catch (err: any) {
       setError(err.message || 'Kayıt işlemi başarısız.');
     } finally {
@@ -181,8 +193,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div className="p-6">
             {error && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 leading-relaxed">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
                 <span>{error}</span>
               </div>
             )}
@@ -205,7 +217,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   const roleConfig: Record<string, { label: string; desc: string; badge: string }> = {
                     manager: { label: 'Kurum Müdürü', desc: 'Kemal Öztürk (Okul Müdürü & Personel Yetkilendirme)', badge: 'bg-emerald-100 text-emerald-900 border border-emerald-300' },
                     teacher: { label: 'Danışman Öğretmen', desc: 'Zehra Aydın (Rehberlik & İhtiyaç Sahibi Öğrenci Tahsisleri)', badge: 'bg-blue-100 text-blue-900 border border-blue-300' },
-                    canteen: { label: 'Kantinci Paneli', desc: 'Mehmet Usta (Atatürk İlkokulu Kantini)', badge: 'bg-amber-100 text-amber-900 border border-amber-300' },
+                    canteen: { label: 'Kantinci Paneli', desc: 'Mehmet Usta (Kantin İşletmecisi & Sipariş Teslimatı)', badge: 'bg-amber-100 text-amber-900 border border-amber-300' },
                     parent: { label: 'Veli Hesabı', desc: 'Ayşe Yılmaz (Ali ve Zeynep\'in Velisi)', badge: 'bg-teal-100 text-teal-900 border border-teal-300' },
                     admin: { label: 'Sistem Yöneticisi', desc: 'Platform Altyapı ve Sistem Ayarları', badge: 'bg-purple-100 text-purple-900 border border-purple-300' },
                   };
@@ -241,6 +253,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {/* TAB: Login */}
             {tab === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
+                {/* Multi-role helper info */}
+                <div className="p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-stone-600 text-xs flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span className="text-[11px] leading-tight">
+                    <strong className="text-stone-800">Tek Giriş Portalı:</strong> Veli, Danışman Öğretmen, Kantinci, Kurum Müdürü ve Sistem Yöneticisi bu ekrandan giriş yapabilir.
+                  </span>
+                </div>
+
+                {initialRole === 'admin' && (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-xs flex items-start gap-2">
+                    <Shield className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Merkezi Sistem Yöneticisi Girişi</p>
+                      <p className="text-[11px] text-purple-800 mt-0.5">
+                        Platform altyapısı, tüm okulların yönetimi ve sistem ayarları için yönetici e-posta ve şifrenizle giriş yapınız. Otomatik olarak Merkezi Yönetim paneline yönlendirileceksiniz.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {initialRole === 'teacher' && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-start gap-2">
                     <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -273,7 +305,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="veli@kantincep.com"
+                      placeholder="adiniz@kantincep.com veya veli@kantincep.com"
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600 focus:border-emerald-600"
                     />
                   </div>
@@ -364,6 +396,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-stone-700">Okul Kayıt Kodu</label>
+                    <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Çok Okullu Sistem</span>
+                  </div>
+                  <div className="relative">
+                    <SchoolIcon className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={schoolCode}
+                      onChange={e => setSchoolCode(e.target.value.toUpperCase())}
+                      placeholder="Örn: ATATURK01"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-emerald-600 font-mono uppercase tracking-wider"
+                    />
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-1">Okulunuzun verdiği kayıt kodunu giriniz (Varsayılan: ATATURK01).</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

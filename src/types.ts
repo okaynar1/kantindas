@@ -24,6 +24,10 @@ export interface School {
   address: string;
   timezone: string;
   activeStatus: boolean;
+  code?: string;
+  managerUserId?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export interface Student {
@@ -113,6 +117,8 @@ export interface Order {
   deliveryCode: string; // 4-digit code e.g. "7294" for student to pick up
   isVerifiedDelivery: boolean;
   cancelledReason?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
@@ -188,6 +194,7 @@ export interface DonationDistribution {
 
 export interface AuditLog {
   id: string;
+  schoolId?: string;
   actorUserId: string;
   actorName: string;
   actorRole: string;
@@ -288,6 +295,7 @@ export interface TeacherProfile {
   accountStatus: AccountStatus;
   mustChangePassword: boolean;
   createdByManagerId?: string;
+  isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -302,6 +310,7 @@ export interface CanteenProfile {
   accountStatus: AccountStatus;
   mustChangePassword: boolean;
   createdByManagerId?: string;
+  isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }

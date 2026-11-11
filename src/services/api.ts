@@ -1,5 +1,6 @@
 import {
   User,
+  School,
   Student,
   Product,
   Category,
@@ -45,15 +46,42 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const res = await fetch(`${API_BASE_URL}${cleanEndpoint}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${cleanEndpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (netErr: any) {
+    throw new Error(`Ağ bağlantısı kurulamadı veya sunucuya ulaşılamıyor: ${netErr?.message || 'Bilinmeyen ağ hatası'}`);
+  }
 
-  const data = await res.json().catch(() => ({ error: 'Ağ hatası veya geçersiz sunucu yanıtı.' }));
+  let data: any = null;
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+  } else {
+    const rawText = await res.text().catch(() => '');
+    if (rawText && !rawText.trim().startsWith('<')) {
+      data = { error: rawText.trim() };
+    }
+  }
 
   if (!res.ok) {
-    throw new Error(data.error || 'İşlem gerçekleştirilemedi.');
+    let errorMsg = data?.error;
+    if (!errorMsg) {
+      if (res.status === 403) errorMsg = 'Bu işlem için yetkiniz bulunmuyor (403).';
+      else if (res.status === 401) errorMsg = 'Oturum açmanız gerekiyor veya oturumunuz sonlanmış (401).';
+      else if (res.status === 404) errorMsg = 'İstenen kaynak veya servis bulunamadı (404).';
+      else if (res.status >= 500) errorMsg = `Sunucu hatası oluştu (HTTP ${res.status}).`;
+      else errorMsg = `İşlem gerçekleştirilemedi (HTTP ${res.status}).`;
+    }
+    const message = data?.detail ? `${errorMsg} (${data.detail})` : errorMsg;
+    throw new Error(message);
   }
 
   return data;
@@ -61,14 +89,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
-  register: (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean; schoolId?: string }) =>
-    request<{ success: boolean; user: User; token: string; message: string }>('/auth/register', {
+  register: (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean; schoolId?: string; schoolCode?: string }) =>
+    request<{ success: boolean; user: User; school?: School | null; token: string; emailConfirmationRequired?: boolean; message: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
   login: (payload: { email: string; password?: string }) =>
-    request<{ success: boolean; user: User; token: string }>('/auth/login', {
+    request<{ success: boolean; user: User; school?: School | null; token: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -79,17 +107,35 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  getMe: () => request<{ user: User }>('/auth/me'),
+  getMe: () => request<{ user: User; school?: School | null }>('/auth/me'),
 
   getQuickAccounts: () => request<{ users: { id: string; fullName: string; email: string; role: string; schoolId: string }[] }>('/auth/quick-accounts'),
 
   // Schools, Breaks, Categories
-  getSchools: () => request<{ schools: any[] }>('/schools'),
+  getSchools: () => request<{ schools: School[] }>('/schools'),
+  getSchoolById: (id: string) => request<{ school: School }>(`/schools/${encodeURIComponent(id)}`),
+  createSchool: (payload: { name: string; code: string; address?: string; timezone?: string }) =>
+    request<{ success: boolean; school: School }>('/schools', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  verifySchoolCode: (code: string) =>
+    request<{ valid: boolean; school?: { id: string; code: string; name: string; address?: string }; error?: string }>(`/schools/verify-code/${encodeURIComponent(code)}`),
   updateSchool: (id: string, updates: any) =>
-    request<{ success: boolean; school: any }>(`/schools/${id}`, {
+    request<{ success: boolean; school: School }>(`/schools/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     }),
+  deleteSchool: (id: string, hard = false) =>
+    request<{ success: boolean; message: string; school?: School }>(`/schools/${id}${hard ? '?hard=true' : ''}`, {
+      method: 'DELETE',
+    }),
+  assignSchoolManager: (schoolId: string, payload: { managerUserId?: string; fullName?: string; email?: string; tempPassword?: string }) =>
+    request<{ success: boolean; message: string; school: School; manager: User }>(`/schools/${schoolId}/manager`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getAdminSchoolsSummary: () => request<{ schools: any[] }>('/admin/schools-summary'),
   getBreaks: (schoolId?: string) => request<{ breaks: BreakTime[] }>(`/breaks${schoolId ? `?schoolId=${schoolId}` : ''}`),
   createBreak: (payload: { name: string; startTime: string; endTime: string; orderDeadlineMinutesBefore?: number; schoolId?: string }) =>
     request<{ success: boolean; break: BreakTime }>('/breaks', {
@@ -155,14 +201,21 @@ export const api = {
     }),
 
   // Orders
-  getOrders: (params?: { date?: string; breakId?: string; status?: string; search?: string }) => {
+  getOrders: (params?: { date?: string; breakId?: string; status?: string; search?: string; includeArchived?: boolean; onlyArchived?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.date) q.set('date', params.date);
     if (params?.breakId) q.set('breakId', params.breakId);
     if (params?.status) q.set('status', params.status);
     if (params?.search) q.set('search', params.search);
+    if (params?.includeArchived) q.set('includeArchived', 'true');
+    if (params?.onlyArchived) q.set('onlyArchived', 'true');
     return request<{ orders: Order[] }>(`/orders?${q.toString()}`);
   },
+  endOfDayArchive: (schoolId?: string) =>
+    request<{ success: boolean; archivedCount: number; message: string }>('/canteen/end-of-day-archive', {
+      method: 'POST',
+      body: JSON.stringify({ schoolId }),
+    }),
   createOrder: (payload: { studentId: string; orderDate: string; breakId: string; items: { productId: string; quantity: number }[]; note?: string }) =>
     request<{ success: boolean; order: Order }>('/orders', {
       method: 'POST',
@@ -247,6 +300,10 @@ export const api = {
     request<{ success: boolean; tempPassword: string; message: string }>(`/manager/teachers/${id}/reset-password`, {
       method: 'POST',
     }),
+  deleteManagerTeacher: (id: string) =>
+    request<{ success: boolean; message: string }>(`/manager/teachers/${id}`, {
+      method: 'DELETE',
+    }),
   getManagerCanteenUsers: () => request<{ canteens: any[] }>('/manager/canteen-users'),
   createManagerCanteenUser: (payload: { fullName: string; email: string; canteenUnit?: string; tempPassword?: string }) =>
     request<{ success: boolean; canteen: any; user: any; tempPassword: string; message: string }>('/manager/canteen-users', {
@@ -262,7 +319,12 @@ export const api = {
     request<{ success: boolean; tempPassword: string; message: string }>(`/manager/canteen-users/${id}/reset-password`, {
       method: 'POST',
     }),
+  deleteManagerCanteenUser: (id: string) =>
+    request<{ success: boolean; message: string }>(`/manager/canteen-users/${id}`, {
+      method: 'DELETE',
+    }),
   getManagerReports: () => request<{ reports: any }>('/manager/reports'),
+  getManagerAuditLogs: () => request<{ logs: AuditLog[] }>('/manager/audit-logs'),
 
   // Teacher (Danışman Öğretmen)
   getTeacherNeeds: () => request<{ needs: any[] }>('/teacher/needs'),
@@ -276,6 +338,10 @@ export const api = {
       method: 'POST',
     }),
   cancelStudentNeed: (id: string) =>
+    request<{ success: boolean; message: string }>(`/teacher/needs/${id}`, {
+      method: 'DELETE',
+    }),
+  deleteTeacherNeed: (id: string) =>
     request<{ success: boolean; message: string }>(`/teacher/needs/${id}`, {
       method: 'DELETE',
     }),

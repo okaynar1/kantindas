@@ -20,25 +20,27 @@ import { ForcePasswordChangeModal } from './components/modals/ForcePasswordChang
 import { ShieldCheck, Heart, Sparkles, School, UtensilsCrossed } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, school, adminSelectedSchool } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('menu');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isKvkkOpen, setIsKvkkOpen] = useState(false);
 
   // Sync activeTab when user role changes
   useEffect(() => {
-    if (user?.role === 'canteen') {
+    if (!user) {
+      setActiveTab('menu');
+    } else if (user.role === 'canteen') {
       setActiveTab('canteen_orders');
-    } else if (user?.role === 'manager') {
+    } else if (user.role === 'manager') {
       setActiveTab('manager_dashboard');
-    } else if (user?.role === 'teacher') {
+    } else if (user.role === 'teacher') {
       setActiveTab('teacher_dashboard');
-    } else if (user?.role === 'admin') {
+    } else if (user.role === 'admin') {
       setActiveTab('admin_dashboard');
     } else {
       setActiveTab('menu');
     }
-  }, [user?.role]);
+  }, [user]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#faf8f5] text-stone-800">
@@ -64,27 +66,33 @@ const MainLayout: React.FC = () => {
         {activeTab === 'students' && <ParentStudentsView />}
 
         {/* Kantinci Screens */}
-        {activeTab === 'canteen_orders' && <CanteenOrdersView />}
-        {activeTab === 'canteen_products' && <CanteenProductsView />}
-        {activeTab === 'canteen_donations' && <CanteenDonationsView />}
-        {activeTab === 'canteen_reports' && <CanteenReportsView />}
-        {activeTab === 'canteen_support' && <CanteenSupportView />}
+        {activeTab === 'canteen_orders' && (user?.role === 'canteen' || user?.role === 'admin') && <CanteenOrdersView />}
+        {activeTab === 'canteen_products' && (user?.role === 'canteen' || user?.role === 'admin') && <CanteenProductsView />}
+        {activeTab === 'canteen_donations' && (user?.role === 'canteen' || user?.role === 'admin') && <CanteenDonationsView />}
+        {activeTab === 'canteen_reports' && (user?.role === 'canteen' || user?.role === 'admin') && <CanteenReportsView />}
+        {activeTab === 'canteen_support' && (user?.role === 'canteen' || user?.role === 'admin' || user?.role === 'manager') && <CanteenSupportView />}
 
         {/* Kurum Müdürü Screen */}
-        {activeTab === 'manager_dashboard' && <ManagerDashboardView />}
+        {activeTab === 'manager_dashboard' && (user?.role === 'manager' || user?.role === 'admin') && <ManagerDashboardView />}
 
         {/* Danışman Öğretmen Screen */}
-        {activeTab === 'teacher_dashboard' && <TeacherDashboardView />}
+        {activeTab === 'teacher_dashboard' && (user?.role === 'teacher' || user?.role === 'admin') && <TeacherDashboardView />}
 
-        {/* Yönetici Screen */}
-        {activeTab === 'admin_dashboard' && <AdminDashboardView />}
+        {/* Yönetici Screen (STRICT GUARD: Only authenticated admin can view) */}
+        {activeTab === 'admin_dashboard' && user?.role === 'admin' && <AdminDashboardView />}
       </main>
 
       {/* Mandatory Password Change Modal for newly created accounts / temporary passwords */}
       {user?.mustChangePassword && (
         <ForcePasswordChangeModal
           isOpen={true}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            if (user?.role === 'manager') setActiveTab('manager_dashboard');
+            else if (user?.role === 'teacher') setActiveTab('teacher_dashboard');
+            else if (user?.role === 'canteen') setActiveTab('canteen_orders');
+            else if (user?.role === 'admin') setActiveTab('admin_dashboard');
+            else setActiveTab('menu');
+          }}
         />
       )}
 
@@ -152,7 +160,11 @@ const MainLayout: React.FC = () => {
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">Altyapı & Güvenlik</h4>
               <ul className="text-xs space-y-1.5 text-stone-400">
-                <li>Atatürk İlkokulu ve Ortaokulu</li>
+                <li className="font-semibold text-stone-300">
+                  {adminSelectedSchool
+                    ? adminSelectedSchool.name
+                    : school?.name || (user?.role === 'admin' ? 'KantinCep Çok Okullu Platformu' : 'Kayıtlı Okul')}
+                </li>
                 <li>Europe/Istanbul Saat Dilimi</li>
                 <li>256-Bit SSL Şifreleme</li>
                 <li>iyzico / PayTR Ödeme Entegrasyonu</li>

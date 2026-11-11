@@ -1,8 +1,12 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { app } from './src/server/app.ts';
+import { startDailyCleanupScheduler } from './src/server/dailyCleanup.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +33,7 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 KantinCep Sunucusu Başlatıldı: http://localhost:${PORT}`);
     console.log(`📌 Ortam: ${isProduction ? 'Production' : 'Development'}`);
+    startDailyCleanupScheduler();
   });
 }
 

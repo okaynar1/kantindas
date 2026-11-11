@@ -18,6 +18,8 @@ import {
   Info,
   PackageCheck,
   GraduationCap,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { KvkkModal } from './modals/KvkkModal.tsx';
@@ -36,6 +38,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const {
     user,
+    school,
+    schoolLoading,
+    schoolError,
+    adminSelectedSchool,
+    setAdminSelectedSchool,
     cartCount,
     notifications,
     unreadNotificationCount,
@@ -57,11 +64,75 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Top Announcement Bar */}
         <div className="bg-emerald-950 text-emerald-100 text-[11px] py-1 px-4 flex items-center justify-between">
           <div className="flex items-center gap-2 max-w-4xl mx-auto w-full justify-between">
-            <div className="flex items-center gap-1.5 font-medium">
-              <School className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Atatürk İlkokulu ve Ortaokulu</span>
-              <span className="text-emerald-500">·</span>
-              <span className="hidden sm:inline text-emerald-300">Sıranı bekleme, iyiliği paylaş!</span>
+            <div className="flex items-center gap-1.5 font-medium truncate max-w-[70%] sm:max-w-none">
+              {user?.role === 'admin' ? (
+                // Central System Admin
+                adminSelectedSchool ? (
+                  <div className="flex items-center gap-1.5">
+                    <School className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span className="font-bold text-white tracking-wide truncate">
+                      {adminSelectedSchool.name}
+                    </span>
+                    {adminSelectedSchool.code && (
+                      <span className="text-[10px] bg-blue-900 text-blue-200 border border-blue-600/50 px-1.5 py-0.2 rounded font-mono">
+                        {adminSelectedSchool.code}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setAdminSelectedSchool(null)}
+                      title="Merkezi Yönetim görünümüne dön"
+                      className="text-[10px] bg-emerald-900 hover:bg-emerald-800 text-emerald-200 px-1.5 py-0.2 rounded ml-1 border border-emerald-700/60 transition-colors flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                      Tüm Okullar
+                    </button>
+                    <span className="text-emerald-500">·</span>
+                    <span className="hidden sm:inline text-emerald-300">Özel Okul İncelemesi</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-bold text-white tracking-wide">
+                      KantinCep – Merkezi Yönetim
+                    </span>
+                    <span className="text-emerald-500">·</span>
+                    <span className="hidden sm:inline text-emerald-300">Tüm Okullar ve Sistem Denetimi</span>
+                  </div>
+                )
+              ) : schoolLoading ? (
+                // Loading state (never flash old school name)
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin shrink-0" />
+                  <span className="text-emerald-300 animate-pulse">Okul bilgisi yükleniyor...</span>
+                </div>
+              ) : schoolError ? (
+                // School error state
+                <div className="flex items-center gap-1.5 text-amber-300">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">Okul bilgisi doğrulanamadı ({schoolError})</span>
+                </div>
+              ) : school ? (
+                // User's verified school
+                <div className="flex items-center gap-1.5">
+                  <School className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="font-bold text-white tracking-wide truncate">{school.name}</span>
+                  {school.code && (
+                    <span className="text-[10px] bg-emerald-900 text-emerald-200 border border-emerald-700/60 px-1.5 py-0.2 rounded font-mono">
+                      {school.code}
+                    </span>
+                  )}
+                  <span className="text-emerald-500">·</span>
+                  <span className="hidden sm:inline text-emerald-300">Sıranı bekleme, iyiliği paylaş!</span>
+                </div>
+              ) : (
+                // Default unauthenticated / guest
+                <div className="flex items-center gap-1.5">
+                  <School className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="font-bold text-white">KantinCep Çok Okullu Platformu</span>
+                  <span className="text-emerald-500">·</span>
+                  <span className="hidden sm:inline text-emerald-300">Sıranı bekleme, iyiliği paylaş!</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -97,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       KantinCep
                     </span>
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200">
-                      v1.0
+                      V2.09
                     </span>
                   </div>
                   <p className="text-[10px] text-stone-500 font-medium -mt-0.5">
@@ -560,6 +631,72 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 Raporlar
+              </button>
+            </>
+          )}
+
+          {user?.role === 'manager' && (
+            <>
+              <button
+                onClick={() => setActiveTab('manager_dashboard')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold flex items-center gap-1 ${
+                  activeTab === 'manager_dashboard' ? 'bg-emerald-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                <School className="w-3 h-3" />
+                Müdür Paneli
+              </button>
+              <button
+                onClick={() => setActiveTab('canteen_support')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold ${
+                  activeTab === 'canteen_support' ? 'bg-emerald-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                Kantin Teslimatları
+              </button>
+            </>
+          )}
+
+          {user?.role === 'teacher' && (
+            <>
+              <button
+                onClick={() => setActiveTab('teacher_dashboard')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold flex items-center gap-1 ${
+                  activeTab === 'teacher_dashboard' ? 'bg-blue-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                <GraduationCap className="w-3 h-3" />
+                Danışman Öğretmen
+              </button>
+            </>
+          )}
+
+          {user?.role === 'admin' && (
+            <>
+              <button
+                onClick={() => setActiveTab('admin_dashboard')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold flex items-center gap-1 ${
+                  activeTab === 'admin_dashboard' ? 'bg-blue-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                <ShieldCheck className="w-3 h-3" />
+                Merkezi Yönetim
+              </button>
+              <button
+                onClick={() => setActiveTab('manager_dashboard')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold ${
+                  activeTab === 'manager_dashboard' ? 'bg-blue-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                Müdür Paneli
+              </button>
+              <button
+                onClick={() => setActiveTab('teacher_dashboard')}
+                className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap font-bold ${
+                  activeTab === 'teacher_dashboard' ? 'bg-blue-800 text-white' : 'text-stone-700'
+                }`}
+              >
+                Öğretmen Paneli
               </button>
             </>
           )}

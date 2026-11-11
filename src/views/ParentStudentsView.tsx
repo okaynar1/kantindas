@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit2, Trash2, GraduationCap, School, ShieldCheck } from 'lucide-react';
 import { Student } from '../types.ts';
 import { api } from '../services/api.ts';
+import { useAuth } from '../context/AuthContext.tsx';
 import { StudentModal } from '../components/modals/StudentModal.tsx';
 
 export const ParentStudentsView: React.FC = () => {
+  const { school } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -16,9 +18,13 @@ export const ParentStudentsView: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.getStudents();
-      setStudents(res.students);
+      setStudents(res.students || []);
     } catch (e: any) {
-      setActionNotice({ type: 'error', text: e.message || 'Öğrenciler yüklenemedi.' });
+      if (e.message?.includes('Oturum') || e.message?.includes('oturum')) {
+        setStudents([]);
+      } else {
+        setActionNotice({ type: 'error', text: e.message || 'Öğrenciler yüklenemedi.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -112,7 +118,7 @@ export const ParentStudentsView: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-stone-400 pt-1 flex items-center gap-1">
                   <School className="w-3 h-3" />
-                  Atatürk İlkokulu ve Ortaokulu
+                  {school?.name || 'Kayıtlı Okul'}
                 </p>
               </div>
 

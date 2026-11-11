@@ -12,6 +12,8 @@ import {
   Check,
   Eye,
   Store,
+  Archive,
+  CalendarCheck,
 } from 'lucide-react';
 import { Order, OrderStatus, BreakTime, CanteenReportSummary } from '../types.ts';
 import { api } from '../services/api.ts';
@@ -24,6 +26,11 @@ export const CanteenOrdersView: React.FC = () => {
   const [breaks, setBreaks] = useState<BreakTime[]>([]);
   const [summary, setSummary] = useState<CanteenReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Operational view scope: 'active' (today's active queue) vs 'archived' (past / completed orders)
+  const [viewScope, setViewScope] = useState<'active' | 'archived'>('active');
+  const [confirmArchiveModal, setConfirmArchiveModal] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -41,7 +48,10 @@ export const CanteenOrdersView: React.FC = () => {
   const fetchData = async () => {
     try {
       const [ordRes, brkRes, sumRes] = await Promise.all([
-        api.getOrders(),
+        api.getOrders({
+          includeArchived: viewScope === 'archived',
+          onlyArchived: viewScope === 'archived',
+        }),
         api.getBreaks(user?.schoolId || 'school-1'),
         api.getCanteenSummary(),
       ]);
@@ -58,7 +68,24 @@ export const CanteenOrdersView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [user, viewScope]);
+
+  const handleManualArchive = async () => {
+    setIsArchiving(true);
+    try {
+      const res = await api.endOfDayArchive(user?.schoolId);
+      setActionNotice({
+        type: 'success',
+        text: res.message || `${res.archivedCount} adet sipariş gün sonu arşivi ile tamamlandı.`,
+      });
+      setConfirmArchiveModal(false);
+      await fetchData();
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err.message || 'Gün sonu işlemi gerçekleştirilemedi.' });
+    } finally {
+      setIsArchiving(false);
+    }
+  };
 
   // Auto-refresh interval (polling every 10 seconds for real-time order board)
   useEffect(() => {
@@ -140,6 +167,48 @@ export const CanteenOrdersView: React.FC = () => {
         </div>
       </div>
 
+      {/* Operasyonel Ekran ve Arşiv Seçicisi */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-stone-200 shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setViewScope('active')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewScope === 'active'
+                ? 'bg-emerald-800 text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <Store className="w-3.5 h-3.5" />
+            Canlı Operasyon Ekranı (Bugün)
+          </button>
+          <button
+            onClick={() => setViewScope('archived')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewScope === 'archived'
+                ? 'bg-amber-800 text-white shadow-xs'
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Geçmiş / Arşivlenmiş Siparişler
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-stone-500 hidden md:inline">
+            Otomatik temizlik her gün <strong className="text-stone-800">23:59 TSİ</strong>'de gerçekleşir.
+          </span>
+          <button
+            onClick={() => setConfirmArchiveModal(true)}
+            className="px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Tamamlanan siparişleri şimdi arşive aktar"
+          >
+            <CalendarCheck className="w-3.5 h-3.5 text-emerald-700" />
+            Gün Sonunu Kapat
+          </button>
+        </div>
+      </div>
+
       {actionNotice && (
         <div
           className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
@@ -184,6 +253,23 @@ export const CanteenOrdersView: React.FC = () => {
           <div className="bg-white p-3.5 rounded-2xl border border-emerald-300 bg-emerald-50/50 shadow-xs">
             <p className="text-[11px] text-emerald-800 font-medium">Günlük Ciro</p>
             <p className="text-xl font-black text-emerald-950">₺{summary.todaySalesAmount.toFixed(2)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Okul Zil ve Teslimat Saatleri Bilgilendirme Barı */}
+      {breaks.length > 0 && (
+        <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs">
+          <div className="flex items-center gap-2 text-emerald-950 font-medium">
+            <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span className="font-bold">Kurum Müdürü Tarafından Belirlenen Teneffüs & Teslimat Saatleri:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {breaks.filter(b => b.activeStatus).map(b => (
+              <span key={b.id} className="px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-950 font-mono text-[11px] font-bold shadow-2xs">
+                {b.name}: {b.startTime}-{b.endTime}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -490,6 +576,54 @@ export const CanteenOrdersView: React.FC = () => {
             fetchData();
           }}
         />
+      )}
+
+      {/* Gün Sonunu Kapatma ve Arşivleme Modalı */}
+      {confirmArchiveModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center gap-2 text-emerald-800">
+              <CalendarCheck className="w-6 h-6 shrink-0" />
+              <div>
+                <h3 className="font-bold text-base text-stone-900">Gün Sonunu Kapat ve Arşivle</h3>
+                <p className="text-xs text-stone-500">Günlük Operasyonel Sipariş Temizliği</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Bugün okul kantininde teslim edilmiş (<strong className="text-stone-900">Teslim Edildi</strong>) ve iptal edilmiş siparişler aktif canlı ekrandan çıkarılarak geçmiş gün arşivine aktarılacaktır.
+            </p>
+
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+              <p className="font-bold">Korunan Veriler:</p>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                <li>Henüz teslim edilmemiş veya hazırlık aşamasındaki siparişler korunur ve ekranda kalır.</li>
+                <li>Günlük ciro, ödeme kayıtları, kasa raporları ve stok hareketleri aynen korunur.</li>
+                <li>Arşivlenen siparişlere dilediğiniz an "Geçmiş / Arşivlenmiş Siparişler" sekmesinden erişebilirsiniz.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isArchiving}
+                onClick={() => setConfirmArchiveModal(false)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold hover:bg-stone-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                disabled={isArchiving}
+                onClick={handleManualArchive}
+                className="px-4 py-2 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900 shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                {isArchiving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                {isArchiving ? 'Arşivleniyor...' : 'Evet, Gün Sonunu Kapat'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

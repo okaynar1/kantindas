@@ -51,16 +51,16 @@ export const ParentMenuView: React.FC<ParentMenuViewProps> = ({ onOpenCart, onNa
       setLoading(true);
       try {
         const [prodRes, catRes, studRes] = await Promise.all([
-          api.getProducts({ type: 'food', active: true }),
-          api.getCategories(user?.schoolId || 'school-1'),
-          api.getStudents(),
+          api.getProducts({ type: 'food', active: true }).catch(() => ({ products: [] })),
+          api.getCategories(user?.schoolId || 'school-1').catch(() => ({ categories: [] })),
+          user ? api.getStudents().catch(() => ({ students: [] })) : Promise.resolve({ students: [] }),
         ]);
 
-        setProducts(prodRes.products);
-        setCategories(catRes.categories.filter(c => c.productType === 'food'));
-        setStudents(studRes.students);
+        setProducts(prodRes?.products || []);
+        setCategories((catRes?.categories || []).filter(c => c.productType === 'food'));
+        setStudents(studRes?.students || []);
       } catch (err) {
-        console.error(err);
+        console.error('Menu load error:', err);
       } finally {
         setLoading(false);
       }

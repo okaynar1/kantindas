@@ -1,8 +1,12 @@
+import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { db, getTodayFormatted, verifyPassword, hashPassword } from './db.ts';
 import { realtimeHub } from './realtimeNotifications.ts';
+import { testSupabaseConnection, getSupabaseClient, getSupabaseAdminClient, getUserScopedClient, getSupabaseEnv, toCamelCase, toSnakeCase, createOrSyncAuthUser } from './supabase.ts';
+import { executeEndOfDayArchive } from './dailyCleanup.ts';
 import {
   User,
+  School,
   Order,
   Donation,
   Product,
@@ -14,8 +18,24 @@ import {
 
 export const apiRouter = Router();
 
-// Helper to authenticate user from header (Authorization: Bearer <userId> or session) or query token
-function getAuthUser(req: Request): User | null {
+// In-memory active session store for authenticated users
+interface ActiveSession {
+  userId: string;
+  email: string;
+  role: UserRole;
+  createdAt: number;
+  expiresAt: number;
+}
+const activeSessions = new Map<string, ActiveSession>();
+
+// Supabase Status Endpoint
+apiRouter.get('/supabase/status', async (_req: Request, res: Response) => {
+  const status = await testSupabaseConnection();
+  return res.json(status);
+});
+
+// Helper to authenticate user from header (Authorization: Bearer <token>) or query token
+async function getAuthUser(req: Request): Promise<User | null> {
   const authHeader = req.headers.authorization;
   let token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
   if (!token && req.query.token) {
@@ -25,14 +45,148 @@ function getAuthUser(req: Request): User | null {
     token = String(req.query.userId).trim();
   }
   if (!token) return null;
-  // In our full-stack setup, token is the user ID or formatted auth token
-  const user = db.getUserById(token);
-  return user && user.accountStatus === 'active' ? user : null;
+
+  // 1. Check active session registry (fast, authenticated sessions)
+  const session = activeSessions.get(token);
+  if (session && session.expiresAt > Date.now()) {
+    const user = db.getUserById(session.userId) || db.getUserByEmail(session.email);
+    if (user && user.accountStatus === 'active') {
+      return user;
+    }
+  }
+
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
+
+  // WHEN SUPABASE IS CONFIGURED: STRICT SUPABASE AUTHENTICATION
+  if (supabaseClient && env.isConfigured) {
+    try {
+      if (token.includes('.')) {
+        // 1. JWT Access Token from Supabase Auth
+        const { data: authData, error: authErr } = await supabaseClient.auth.getUser(token);
+        if (!authErr && authData?.user) {
+          const authUserId = authData.user.id;
+          const authEmail = (authData.user.email || '').toLowerCase();
+
+          // 1.1 Query Supabase public.users using user-scoped client (with their Bearer JWT so RLS permits it!)
+          const userScoped = getUserScopedClient(token);
+          if (userScoped) {
+            try {
+              const { data: publicUser } = await userScoped
+                .from('users')
+                .select('*')
+                .eq('id', authUserId)
+                .maybeSingle();
+
+              if (publicUser) {
+                const mappedUser: User = toCamelCase(publicUser);
+                if (mappedUser.accountStatus === 'active') {
+                  db.upsertUserFromSupabase(mappedUser);
+                  return mappedUser;
+                }
+              }
+            } catch {
+              // Fall through to admin / local cache
+            }
+          }
+
+          // 1.2 Query using admin client if service role key is configured
+          const adminClient = getSupabaseAdminClient();
+          if (adminClient) {
+            try {
+              const { data: adminUser } = await adminClient
+                .from('users')
+                .select('*')
+                .eq('id', authUserId)
+                .maybeSingle();
+
+              if (adminUser) {
+                const mappedUser: User = toCamelCase(adminUser);
+                if (mappedUser.accountStatus === 'active') {
+                  db.upsertUserFromSupabase(mappedUser);
+                  return mappedUser;
+                }
+              }
+            } catch {
+              // Fall through
+            }
+          }
+
+          // 1.3 Check local in-memory DB by exact Auth UID or email
+          const cachedUser = db.getUserById(authUserId) || (authEmail ? db.getUserByEmail(authEmail) : undefined);
+          if (cachedUser && cachedUser.accountStatus === 'active') {
+            return cachedUser;
+          }
+
+          // 1.4 Resilient fallback: Construct user from verified Supabase Auth token metadata
+          const meta = authData.user.user_metadata || {};
+          const fallbackUser: User = {
+            id: authUserId,
+            email: authEmail,
+            fullName: meta.full_name || meta.fullName || authEmail.split('@')[0] || 'Kullanıcı',
+            role: (meta.role as UserRole) || 'manager',
+            schoolId: meta.school_id || meta.schoolId || '',
+            accountStatus: 'active',
+            mustChangePassword: true,
+            createdAt: authData.user.created_at || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          db.createUser(fallbackUser);
+          return fallbackUser;
+        }
+      } else {
+        // 2. Direct UID token (e.g. from fallback temporary login)
+        const adminClient = getSupabaseAdminClient();
+        if (adminClient) {
+          try {
+            const { data: adminUser } = await adminClient
+              .from('users')
+              .select('*')
+              .eq('id', token)
+              .maybeSingle();
+
+            if (adminUser) {
+              const mappedUser: User = toCamelCase(adminUser);
+              if (mappedUser.accountStatus === 'active') {
+                db.upsertUserFromSupabase(mappedUser);
+                return mappedUser;
+              }
+            }
+          } catch {
+            // Fall through
+          }
+        }
+
+        const cachedUser = db.getUserById(token) || db.getUserByEmail(token);
+        if (cachedUser && cachedUser.accountStatus === 'active') {
+          return cachedUser;
+        }
+      }
+    } catch (e) {
+      console.warn('[getAuthUser] Error during user verification:', e);
+    }
+
+    // Check cached in-memory DB by token
+    const cachedUser = db.getUserById(token) || db.getUserByEmail(token);
+    if (cachedUser && cachedUser.accountStatus === 'active') {
+      return cachedUser;
+    }
+
+    return null;
+  }
+
+  // Fallback when Supabase is NOT configured (Offline dev only)
+  const cachedUser = db.getUserById(token) || db.getUserByEmail(token);
+  if (cachedUser && cachedUser.accountStatus === 'active') {
+    return cachedUser;
+  }
+
+  return null;
 }
 
 // Middleware to require authentication
-function requireAuth(req: Request, res: Response, next: () => void) {
-  const user = getAuthUser(req);
+async function requireAuth(req: Request, res: Response, next: () => void) {
+  const user = await getAuthUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Oturum açmanız gerekiyor veya oturumunuz sonlanmış.' });
   }
@@ -55,8 +209,8 @@ function requireRole(...roles: UserRole[]) {
 // 1. AUTHENTICATION & USERS
 // ==========================================
 
-const handleRegister = (req: Request, res: Response) => {
-  const { fullName, email, password, passwordRepeat, kvkkConsent, schoolId } = req.body;
+const handleRegister = async (req: Request, res: Response) => {
+  const { fullName, email, password, passwordRepeat, kvkkConsent, schoolId, schoolCode } = req.body;
 
   if (!fullName || !email || !password) {
     return res.status(400).json({ error: 'Ad soyad, e-posta ve şifre zorunludur.' });
@@ -74,94 +228,555 @@ const handleRegister = (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Kişisel Verilerin Korunması ve Aydınlatma Metnini onaylamanız gerekmektedir.' });
   }
 
-  const existing = db.getUserByEmail(email);
-  if (existing) {
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = db.getUserByEmail(cleanEmail);
+  if (existing && existing.passwordHash && !existing.id.startsWith('user-')) {
     return res.status(400).json({ error: 'Bu e-posta adresiyle kayıtlı bir hesap zaten var.' });
   }
 
+  // Resolve target school via schoolCode or schoolId
+  let assignedSchoolId = 'school-1';
+  if (schoolCode && typeof schoolCode === 'string' && schoolCode.trim()) {
+    const matchedSchool = db.getSchoolByCode(schoolCode.trim().toUpperCase());
+    if (!matchedSchool) {
+      return res.status(400).json({ error: 'Girilen okul kodu sistemde bulunamadı. Lütfen okulunuzdan aldığınız kodu kontrol ediniz.' });
+    }
+    if (!matchedSchool.activeStatus) {
+      return res.status(400).json({ error: 'Belirtilen okul şu anda aktif değildir.' });
+    }
+    assignedSchoolId = matchedSchool.id;
+  } else if (schoolId && typeof schoolId === 'string' && schoolId.trim()) {
+    const matchedSchool = db.getSchoolById(schoolId.trim()) || db.getSchoolByCode(schoolId.trim());
+    if (matchedSchool) {
+      assignedSchoolId = matchedSchool.id;
+    }
+  }
+
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
+  let authUserId = '';
+  let emailConfirmationRequired = false;
+  let signUpSession: any = null;
+
+  // --- 1. SUPABASE AUTH REGISTRATION ---
+  if (supabaseClient && env.isConfigured) {
+    const adminClient = getSupabaseAdminClient();
+    if (adminClient) {
+      try {
+        const { data: adminCreated, error: adminErr } = await adminClient.auth.admin.createUser({
+          email: cleanEmail,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName.trim(),
+            role: 'parent',
+            school_id: assignedSchoolId,
+          },
+        });
+        if (adminCreated?.user?.id) {
+          authUserId = adminCreated.user.id;
+        } else if (adminErr) {
+          const errMsg = adminErr.message.toLowerCase();
+          if (errMsg.includes('already registered') || errMsg.includes('already exists')) {
+            return res.status(400).json({ error: 'Bu e-posta adresiyle kayıtlı bir hesap zaten var.' });
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Register Admin Auth Notice]:', err?.message);
+      }
+    }
+
+    if (!authUserId) {
+      const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            role: 'parent',
+            school_id: assignedSchoolId,
+          },
+        },
+      });
+
+      if (signUpError) {
+        const errorMsg = (signUpError.message || '').toLowerCase();
+        if (errorMsg.includes('already registered') || errorMsg.includes('already exists')) {
+          return res.status(400).json({
+            error: 'Bu e-posta adresiyle kayıtlı bir hesap zaten var.',
+            code: 'AUTH_USER_ALREADY_EXISTS',
+          });
+        }
+        if (errorMsg.includes('rate limit')) {
+          return res.status(429).json({
+            error: 'Supabase kayıt isteği sınırı aşıldı.',
+            detail: 'Kısa süre içerisinde çok fazla kayıt denendi. Lütfen birkaç dakika bekledikten sonra tekrar deneyiniz.',
+            code: 'AUTH_RATE_LIMIT',
+          });
+        }
+        return res.status(400).json({
+          error: `Supabase kayıt hatası: ${signUpError.message}`,
+          code: 'AUTH_SIGNUP_ERROR',
+        });
+      }
+
+      if (!signUpData?.user?.id) {
+        return res.status(400).json({
+          error: 'Kullanıcı hesabı oluşturulamadı. Lütfen bilgilerinizi kontrol ediniz.',
+        });
+      }
+
+      authUserId = signUpData.user.id;
+      signUpSession = signUpData.session;
+      if (!signUpSession && !signUpData.user.confirmed_at) {
+        emailConfirmationRequired = true;
+      }
+    }
+  }
+
+  // Fallback UUID if offline
+  if (!authUserId) {
+    authUserId = crypto.randomUUID();
+  }
+
   const now = new Date().toISOString();
+  const passHash = hashPassword(password);
   const newUser: User = {
-    id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    id: authUserId,
     fullName: fullName.trim(),
-    email: email.trim().toLowerCase(),
-    role: 'parent', // Regular registrations are always 'parent'
-    schoolId: schoolId || 'school-1',
+    email: cleanEmail,
+    role: 'parent',
+    schoolId: assignedSchoolId,
     accountStatus: 'active',
+    passwordHash: passHash,
+    mustChangePassword: false,
     createdAt: now,
     updatedAt: now,
   };
 
-  db.createUser(newUser);
+  // Save or update in local DB cache
+  db.upsertUserFromSupabase(newUser);
+
+  // Sync to public.users table in Supabase
+  if (supabaseClient && env.isConfigured) {
+    try {
+      const userRecord = {
+        id: authUserId,
+        full_name: newUser.fullName,
+        email: newUser.email,
+        role: 'parent',
+        school_id: assignedSchoolId,
+        account_status: 'active',
+        password_hash: passHash,
+        must_change_password: false,
+        created_at: now,
+        updated_at: now,
+      };
+
+      const adminClient = getSupabaseAdminClient();
+      if (adminClient) {
+        await adminClient.from('users').upsert(userRecord, { onConflict: 'id' });
+      } else if (signUpSession?.access_token) {
+        const userScoped = getUserScopedClient(signUpSession.access_token);
+        if (userScoped) {
+          await userScoped.from('users').upsert(userRecord, { onConflict: 'id' });
+        }
+      } else {
+        await supabaseClient.from('users').upsert(userRecord, { onConflict: 'id' });
+      }
+    } catch (syncErr: any) {
+      console.warn('[Register public.users notice]:', syncErr?.message);
+    }
+  }
+
   db.addAuditLog({
     actorUserId: newUser.id,
     actorName: newUser.fullName,
     actorRole: newUser.role,
+    schoolId: assignedSchoolId,
     action: 'USER_REGISTER',
     entityType: 'user',
     entityId: newUser.id,
-    details: `Yeni veli kaydı oluşturuldu: ${newUser.email}`,
+    details: `Yeni veli kaydı oluşturuldu: ${newUser.email} (UID: ${authUserId}, Okul: ${assignedSchoolId})`,
   });
+
+  // Issue session token if user is confirmed and active
+  let issuedToken = '';
+  if (signUpSession?.access_token) {
+    issuedToken = signUpSession.access_token;
+  } else if (!emailConfirmationRequired) {
+    issuedToken = `kc_sess_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+  }
+
+  if (issuedToken) {
+    const sessionData: ActiveSession = {
+      userId: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
+    };
+    activeSessions.set(issuedToken, sessionData);
+    activeSessions.set(newUser.id, sessionData);
+  }
+
+  const assignedSchool = db.getSchoolById(assignedSchoolId) || null;
+
+  if (emailConfirmationRequired) {
+    return res.json({
+      success: true,
+      user: newUser,
+      school: assignedSchool,
+      token: '',
+      emailConfirmationRequired: true,
+      message: 'Kaydınız Supabase Authentication üzerinde başarıyla oluşturuldu! Güvenlik gereği e-posta kutunuza gelen onay bağlantısına tıklayarak hesabınızı doğrulayınız. Doğrulama sonrası giriş yapabilirsiniz.',
+    });
+  }
 
   return res.json({
     success: true,
     user: newUser,
-    token: newUser.id,
-    message: 'Kaydınız başarıyla oluşturuldu.',
+    school: assignedSchool,
+    token: issuedToken,
+    emailConfirmationRequired: false,
+    message: 'Kaydınız başarıyla oluşturuldu. Sisteme yönlendiriliyorsunuz...',
   });
 };
 apiRouter.post('/auth/register', handleRegister);
 apiRouter.post('/register', handleRegister);
 
-const handleLogin = (req: Request, res: Response) => {
+const handleLogin = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  if (!email) {
+  if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'E-posta adresi gereklidir.' });
   }
 
-  const user = db.getUserByEmail(email);
-  if (!user) {
-    return res.status(401).json({ error: 'E-posta adresi veya şifre hatalı.' });
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Şifre gereklidir.' });
   }
 
-  if (user.accountStatus === 'suspended') {
-    return res.status(403).json({ error: 'Hesabınız askıya alınmıştır. Lütfen okul idaresiyle iletişime geçiniz.' });
-  }
+  const cleanEmail = email.trim().toLowerCase();
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
 
-  // Password verification:
-  if (password && user.passwordHash) {
-    const isOk = verifyPassword(password, user.passwordHash) || password === '123456';
-    if (!isOk) {
-      return res.status(401).json({ error: 'E-posta adresi veya şifre hatalı.' });
+  // --- 1. SUPABASE AUTH INTEGRATION (When configured) ---
+  if (supabaseClient && env.isConfigured) {
+    try {
+      // 1.1 Authenticate via Supabase Auth
+      const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (authError) {
+        // Fallback: Check if user exists in public.users or db with valid password hash
+        let fallbackUser: User | null = null;
+        try {
+          const { data: matchedDbUser } = await supabaseClient
+            .from('users')
+            .select('*')
+            .ilike('email', cleanEmail)
+            .maybeSingle();
+          if (matchedDbUser) {
+            fallbackUser = toCamelCase(matchedDbUser);
+          }
+        } catch {
+          // Ignore RLS errors during fallback lookup
+        }
+
+        if (!fallbackUser) {
+          fallbackUser = db.getUserByEmail(cleanEmail) || null;
+        }
+
+        if (fallbackUser) {
+          const storedHash = fallbackUser.passwordHash || (fallbackUser as any).password_hash;
+          const passMatches = (storedHash ? verifyPassword(password, storedHash) : false) ||
+            (Boolean(fallbackUser.mustChangePassword) && password === '123456');
+
+          if (passMatches) {
+            if (fallbackUser.accountStatus === 'suspended') {
+              return res.status(403).json({
+                error: 'Hesabınız askıya alınmıştır.',
+                detail: 'Lütfen sistem yöneticisi veya okul idaresiyle iletişime geçiniz.',
+                code: 'USER_SUSPENDED',
+              });
+            }
+
+            // Sync with Supabase Auth admin if service role key is present
+            const admin = getSupabaseAdminClient();
+            if (admin) {
+              try {
+                await admin.auth.admin.updateUserById(fallbackUser.id, {
+                  password,
+                  email_confirm: true,
+                });
+              } catch {
+                // Ignore
+              }
+            }
+
+            let school: School | null = null;
+            if (fallbackUser.schoolId) {
+              const { data: schoolData } = await supabaseClient
+                .from('schools')
+                .select('*')
+                .eq('id', fallbackUser.schoolId)
+                .maybeSingle();
+              if (schoolData) {
+                school = toCamelCase(schoolData);
+              } else {
+                school = db.getSchoolById(fallbackUser.schoolId) || null;
+              }
+            }
+
+            const sessionToken = `kc_sess_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+            const sessionData: ActiveSession = {
+              userId: fallbackUser.id,
+              email: fallbackUser.email,
+              role: fallbackUser.role,
+              createdAt: Date.now(),
+              expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
+            };
+            activeSessions.set(sessionToken, sessionData);
+            activeSessions.set(fallbackUser.id, sessionData);
+
+            db.upsertUserFromSupabase(fallbackUser);
+            if (school) db.upsertSchoolFromSupabase(school);
+
+            db.addAuditLog({
+              actorUserId: fallbackUser.id,
+              actorName: fallbackUser.fullName,
+              actorRole: fallbackUser.role,
+              action: 'USER_LOGIN',
+              entityType: 'user',
+              entityId: fallbackUser.id,
+              details: `Kullanıcı güvenli doğrulama ile giriş yaptı: ${fallbackUser.email} (${fallbackUser.role})`,
+            });
+
+            return res.json({
+              success: true,
+              user: fallbackUser,
+              school: school || null,
+              token: sessionToken,
+              mustChangePassword: !!fallbackUser.mustChangePassword,
+            });
+          }
+        }
+
+        const errorMsg = (authError.message || '').toLowerCase();
+        if (errorMsg.includes('invalid login credentials') || errorMsg.includes('invalid credentials')) {
+          return res.status(401).json({
+            error: 'E-posta adresi veya şifre hatalı.',
+            detail: 'Supabase Authentication kimlik doğrulaması başarısız oldu. E-posta veya şifrenizi kontrol ediniz.',
+            code: 'AUTH_INVALID_CREDENTIALS',
+          });
+        }
+        if (errorMsg.includes('email not confirmed')) {
+          return res.status(403).json({
+            error: 'E-posta adresiniz henüz onaylanmamış.',
+            detail: 'Supabase Dashboard -> Authentication -> Users sekmesinden kullanıcının e-postasını onaylayınız ("Auto Confirm User" seçeneğini etkinleştirebilirsiniz).',
+            code: 'AUTH_EMAIL_NOT_CONFIRMED',
+          });
+        }
+        if (errorMsg.includes('fetch failed') || errorMsg.includes('network') || errorMsg.includes('enotfound') || errorMsg.includes('timeout')) {
+          return res.status(503).json({
+            error: 'Supabase sunucusuna ulaşılamadı.',
+            detail: `Ağ veya bağlantı hatası: ${authError.message}. Lütfen SUPABASE_URL adresini kontrol ediniz.`,
+            code: 'AUTH_NETWORK_ERROR',
+          });
+        }
+        return res.status(400).json({
+          error: `Supabase kimlik doğrulama hatası: ${authError.message}`,
+          code: 'AUTH_ERROR',
+        });
+      }
+
+      if (!authData?.user) {
+        return res.status(401).json({ error: 'Kullanıcı doğrulanamadı.' });
+      }
+
+      const authUser = authData.user;
+      const authUserId = authUser.id; // Supabase Auth UID (UUID)
+
+      // 1.2 Fetch profile from public.users using exact Auth UID
+      let publicUser: any = null;
+      try {
+        const { data: fetchedUser } = await supabaseClient
+          .from('users')
+          .select('*')
+          .eq('id', authUserId)
+          .maybeSingle();
+        if (fetchedUser) {
+          publicUser = fetchedUser;
+        }
+      } catch (err: any) {
+        console.warn('[Fetch public.users notice]:', err?.message);
+      }
+
+      // If user row is not yet in public.users (e.g. pending confirmation or RLS on register), auto-provision now
+      if (!publicUser) {
+        const meta = authUser.user_metadata || {};
+        const cached = db.getUserByEmail(cleanEmail) || db.getUserById(authUserId);
+        const userFullName = cached?.fullName || meta.full_name || cleanEmail.split('@')[0];
+        const userRole: UserRole = (cached?.role || meta.role || 'parent') as UserRole;
+        const userSchoolId = cached?.schoolId || meta.school_id || 'school-1';
+        const now = new Date().toISOString();
+        const profilePayload = {
+          id: authUserId,
+          full_name: userFullName,
+          email: cleanEmail,
+          role: userRole,
+          school_id: userSchoolId,
+          account_status: 'active',
+          password_hash: cached?.passwordHash || hashPassword(password),
+          must_change_password: false,
+          created_at: now,
+          updated_at: now,
+        };
+
+        const adminClient = getSupabaseAdminClient();
+        const userScoped = (authData.session?.access_token) ? getUserScopedClient(authData.session.access_token) : null;
+        const clientToUse = adminClient || userScoped || supabaseClient;
+
+        try {
+          const { data: upserted } = await clientToUse
+            .from('users')
+            .upsert(profilePayload, { onConflict: 'id' })
+            .select()
+            .maybeSingle();
+          if (upserted) {
+            publicUser = upserted;
+          }
+        } catch (provErr: any) {
+          console.warn('[Auto-provision public.users notice]:', provErr?.message);
+        }
+
+        if (!publicUser) {
+          publicUser = profilePayload;
+        }
+      }
+
+      const user: User = toCamelCase(publicUser);
+
+      // 1.3 Check account status
+      if (user.accountStatus === 'suspended') {
+        return res.status(403).json({
+          error: 'Hesabınız askıya alınmıştır.',
+          detail: 'Lütfen sistem yöneticisi veya okul idaresiyle iletişime geçiniz.',
+          code: 'USER_SUSPENDED',
+        });
+      }
+
+      // 1.4 Fetch school details if user belongs to a school
+      let school: School | null = null;
+      if (user.schoolId) {
+        const { data: schoolData } = await supabaseClient
+          .from('schools')
+          .select('*')
+          .eq('id', user.schoolId)
+          .single();
+        if (schoolData) {
+          school = toCamelCase(schoolData);
+        }
+      }
+
+      // 1.5 Cache to in-memory db for fast subsequent queries
+      db.upsertUserFromSupabase(user);
+      if (school) {
+        db.upsertSchoolFromSupabase(school);
+      }
+
+      db.addAuditLog({
+        actorUserId: user.id,
+        actorName: user.fullName,
+        actorRole: user.role,
+        action: 'USER_LOGIN',
+        entityType: 'user',
+        entityId: user.id,
+        details: `Kullanıcı Supabase Auth ile başarıyla giriş yaptı: ${user.email} (${user.role}) [UID: ${authUserId}]`,
+      });
+
+      const issuedToken = authData.session?.access_token || user.id;
+      const sessionData: ActiveSession = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
+      };
+      activeSessions.set(issuedToken, sessionData);
+      activeSessions.set(user.id, sessionData);
+
+      return res.json({
+        success: true,
+        user,
+        school: school || null,
+        token: issuedToken,
+        mustChangePassword: !!user.mustChangePassword,
+      });
+    } catch (err: any) {
+      console.error('[Auth Error] Exception during Supabase login:', err);
+      return res.status(500).json({
+        error: 'Giriş işlemi sırasında sunucu hatası oluştu.',
+        detail: err.message,
+      });
     }
   }
 
-  // Record audit log
-  db.addAuditLog({
-    actorUserId: user.id,
-    actorName: user.fullName,
-    actorRole: user.role,
-    action: 'USER_LOGIN',
-    entityType: 'user',
-    entityId: user.id,
-    details: `Kullanıcı giriş yaptı: ${user.email} (${user.role})`,
-  });
+  // --- 2. LOCAL SIMULATION / OFFLINE FALLBACK (When Supabase is not configured yet) ---
+  const localUser = db.getUserByEmail(cleanEmail);
+  if (localUser) {
+    if (localUser.accountStatus === 'suspended') {
+      return res.status(403).json({ error: 'Hesabınız askıya alınmıştır. Lütfen okul idaresiyle iletişime geçiniz.' });
+    }
+    if (password) {
+      const isOk = (localUser.passwordHash ? verifyPassword(password, localUser.passwordHash) : false) ||
+        (Boolean(localUser.mustChangePassword) && password === '123456');
+      if (!isOk) {
+        return res.status(401).json({
+          error: 'E-posta adresi veya şifre hatalı.',
+          detail: 'Girilen şifre uyuşmuyor.',
+        });
+      }
+    }
+    const sessionToken = `kc_sess_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+    const offlineSession: ActiveSession = {
+      userId: localUser.id,
+      email: localUser.email,
+      role: localUser.role,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
+    };
+    activeSessions.set(sessionToken, offlineSession);
+    activeSessions.set(localUser.id, offlineSession);
 
-  return res.json({
-    success: true,
-    user,
-    token: user.id,
-    mustChangePassword: !!user.mustChangePassword,
+    const school = localUser.schoolId ? db.getSchoolById(localUser.schoolId) : null;
+    return res.json({
+      success: true,
+      user: localUser,
+      school: school || null,
+      token: sessionToken,
+      mustChangePassword: !!localUser.mustChangePassword,
+    });
+  }
+
+  // When email is not a local test account and Supabase credentials are missing:
+  return res.status(503).json({
+    error: 'Supabase veritabanı bağlantısı henüz yapılandırılmamış.',
+    detail: `Giriş yapmaya çalıştığınız "${cleanEmail}" hesabı Supabase üzerinde açılmıştır; ancak uygulamada SUPABASE_URL ve SUPABASE_ANON_KEY ortam değişkenleri tanımlanmadığı için Supabase Auth sunucusuna ulaşılamıyor. Lütfen AI Studio ortam değişkenlerine (.env) yeni Supabase proje bilgilerinizi ekleyiniz.`,
+    supabaseConfigured: false,
+    code: 'SUPABASE_NOT_CONFIGURED',
   });
 };
 apiRouter.post('/auth/login', handleLogin);
 apiRouter.post('/login', handleLogin);
 
-apiRouter.post('/auth/change-password', requireAuth, (req: Request, res: Response) => {
+apiRouter.post('/auth/change-password', requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const { currentPassword, newPassword, newPasswordRepeat } = req.body;
 
-  if (!newPassword || newPassword.length < 6) {
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
     return res.status(400).json({ error: 'Yeni şifre en az 6 karakter olmalıdır.' });
   }
 
@@ -169,10 +784,91 @@ apiRouter.post('/auth/change-password', requireAuth, (req: Request, res: Respons
     return res.status(400).json({ error: 'Yeni şifreler birbiriyle uyuşmuyor.' });
   }
 
-  if (user.passwordHash && currentPassword && !verifyPassword(currentPassword, user.passwordHash) && currentPassword !== '123456') {
-    return res.status(400).json({ error: 'Mevcut geçici şifreniz hatalı.' });
+  if (currentPassword && currentPassword === newPassword) {
+    return res.status(400).json({ error: 'Yeni şifreniz mevcut geçici şifrenizle aynı olamaz. Farklı bir şifre belirleyiniz.' });
   }
 
+  // Verify current password if user has passwordHash recorded
+  if (user.passwordHash && currentPassword && !verifyPassword(currentPassword, user.passwordHash) && currentPassword !== '123456') {
+    return res.status(400).json({ error: 'Mevcut geçici şifreniz hatalı. Lütfen size iletilen geçici şifreyi giriniz.' });
+  }
+
+  const authHeader = req.headers.authorization;
+  const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+  const env = getSupabaseEnv();
+  const passHash = hashPassword(newPassword);
+  const now = new Date().toISOString();
+
+  // 1. Update password in Supabase Auth
+  if (env.isConfigured) {
+    if (token && token.includes('.')) {
+      // Authenticated via Supabase JWT: update directly via user-scoped client
+      const userScoped = getUserScopedClient(token);
+      if (userScoped) {
+        try {
+          const { error: authUpdateErr } = await userScoped.auth.updateUser({
+            password: newPassword,
+          });
+          if (authUpdateErr) {
+            console.warn('[Supabase Auth] updateUser notice:', authUpdateErr.message);
+          }
+        } catch (authEx) {
+          console.warn('[Supabase Auth] Exception during auth.updateUser:', authEx);
+        }
+      }
+    }
+
+    // Try admin client if available
+    const adminClient = getSupabaseAdminClient();
+    if (adminClient) {
+      try {
+        await adminClient.auth.admin.updateUserById(user.id, {
+          password: newPassword,
+          email_confirm: true,
+        });
+      } catch (adminErr: any) {
+        console.warn('[Supabase Admin] updateUserById notice:', adminErr?.message);
+      }
+    }
+
+    // 2. Synchronize to public.users table in Supabase
+    try {
+      const userScoped = (token && token.includes('.')) ? getUserScopedClient(token) : null;
+      const clientToUse = userScoped || getSupabaseClient();
+      if (clientToUse) {
+        await clientToUse
+          .from('users')
+          .update({
+            password_hash: passHash,
+            must_change_password: false,
+            updated_at: now,
+          })
+          .eq('id', user.id);
+
+        if (user.role === 'teacher') {
+          await clientToUse
+            .from('teacher_profiles')
+            .update({
+              must_change_password: false,
+              updated_at: now,
+            })
+            .eq('auth_user_id', user.id);
+        } else if (user.role === 'canteen') {
+          await clientToUse
+            .from('canteen_profiles')
+            .update({
+              must_change_password: false,
+              updated_at: now,
+            })
+            .eq('auth_user_id', user.id);
+        }
+      }
+    } catch (syncErr: any) {
+      console.warn('[Supabase DB] Error syncing password change to tables:', syncErr?.message);
+    }
+  }
+
+  // 3. Update in local in-memory & disk database
   const result = db.changePassword(user.id, newPassword);
   if (!result.success) {
     return res.status(400).json({ error: result.message });
@@ -189,7 +885,15 @@ apiRouter.post('/auth/change-password', requireAuth, (req: Request, res: Respons
   });
 
   const updatedUser = db.getUserById(user.id);
-  return res.json({ success: true, message: 'Şifreniz başarıyla değiştirildi.', user: updatedUser });
+  if (updatedUser) {
+    updatedUser.mustChangePassword = false;
+  }
+
+  return res.json({
+    success: true,
+    message: 'Yeni şifreniz başarıyla kaydedildi. Sisteme yönlendiriliyorsunuz...',
+    user: updatedUser,
+  });
 });
 
 apiRouter.post('/auth/reset-password', (req: Request, res: Response) => {
@@ -220,18 +924,36 @@ apiRouter.post('/auth/reset-password', (req: Request, res: Response) => {
   return res.json({ success: true, message: 'Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.' });
 });
 
-const handleMe = (req: Request, res: Response) => {
-  const user = getAuthUser(req);
+const handleMe = async (req: Request, res: Response) => {
+  const user = await getAuthUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Geçersiz oturum.' });
   }
-  return res.json({ user });
+  const school = user.schoolId ? db.getSchoolById(user.schoolId) : null;
+  return res.json({
+    user,
+    school: school
+      ? {
+          id: school.id,
+          code: school.code,
+          name: school.name,
+          address: school.address,
+          timezone: school.timezone,
+          activeStatus: school.activeStatus,
+          managerUserId: school.managerUserId,
+        }
+      : null,
+  });
 };
 apiRouter.get('/auth/me', handleMe);
 apiRouter.get('/me', handleMe);
 
 const handleQuickAccounts = (_req: Request, res: Response) => {
-  // Returns demo quick switch accounts for testing all user roles
+  const env = getSupabaseEnv();
+  // If real Supabase database is connected, disable mock demo accounts
+  if (env.isConfigured) {
+    return res.json({ users: [] });
+  }
   const users = db.getUsers().map(u => ({
     id: u.id,
     fullName: u.fullName,
@@ -251,13 +973,99 @@ apiRouter.get('/quick-accounts', handleQuickAccounts);
 // 2. SCHOOLS, BREAKS & CATEGORIES
 // ==========================================
 
-apiRouter.get('/schools', (_req: Request, res: Response) => {
+apiRouter.get('/schools', async (_req: Request, res: Response) => {
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
+
+  if (supabaseClient && env.isConfigured) {
+    try {
+      const { data: remoteSchools, error } = await supabaseClient
+        .from('schools')
+        .select('*')
+        .order('name');
+      if (!error && remoteSchools) {
+        return res.json({ schools: remoteSchools.map(toCamelCase) });
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   return res.json({ schools: db.getSchools() });
+});
+
+apiRouter.get('/schools/verify-code/:code', (req: Request, res: Response) => {
+  const { code } = req.params;
+  const school = db.getSchoolByCode(code);
+  if (!school || !school.activeStatus) {
+    return res.status(404).json({ valid: false, error: 'Belirtilen okul kodu bulunamadı veya okul pasif durumda.' });
+  }
+  return res.json({
+    valid: true,
+    school: {
+      id: school.id,
+      code: school.code,
+      name: school.name,
+      address: school.address,
+      activeStatus: school.activeStatus,
+    },
+  });
+});
+
+apiRouter.get('/schools/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const school = db.getSchoolById(id);
+  if (!school) {
+    return res.status(404).json({ error: 'Okul bulunamadı.' });
+  }
+  return res.json({
+    school: {
+      id: school.id,
+      code: school.code,
+      name: school.name,
+      address: school.address,
+      timezone: school.timezone,
+      activeStatus: school.activeStatus,
+      managerUserId: school.managerUserId,
+    },
+  });
+});
+
+apiRouter.post('/schools', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
+  const { name, code, address, timezone } = req.body;
+  if (!name || !code) {
+    return res.status(400).json({ error: 'Okul adı ve benzersiz okul kodu zorunludur.' });
+  }
+  const result = db.createSchool({ name, code, address, timezone });
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  const currentUser = (req as any).user;
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'ADMIN_CREATE_SCHOOL',
+    entityType: 'school',
+    entityId: result.school!.id,
+    details: `Yeni okul oluşturuldu: ${result.school!.name} (Kod: ${result.school!.code})`,
+  });
+
+  return res.json({ success: true, school: result.school });
 });
 
 apiRouter.put('/schools/:id', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
   const { id } = req.params;
   const updates = req.body;
+
+  if (updates.code) {
+    const existing = db.getSchoolByCode(updates.code);
+    if (existing && existing.id !== id) {
+      return res.status(400).json({ error: `"${updates.code}" okul kodu başka bir okul tarafından kullanılmaktadır.` });
+    }
+  }
+
   const updated = db.updateSchool(id, updates);
   if (!updated) return res.status(404).json({ error: 'Okul bulunamadı.' });
 
@@ -275,20 +1083,133 @@ apiRouter.put('/schools/:id', requireAuth, requireRole('admin'), (req: Request, 
   return res.json({ success: true, school: updated });
 });
 
-apiRouter.get('/breaks', (req: Request, res: Response) => {
+apiRouter.post('/schools/:id/manager', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { managerUserId, fullName, email, tempPassword } = req.body;
+  const currentUser = (req as any).user;
+
+  let targetUserId = managerUserId;
+
+  if (!targetUserId && email && fullName) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = tempPassword || '123456';
+
+    // 1. Create or sync in Supabase Auth & public.users
+    const authSync = await createOrSyncAuthUser({
+      email: cleanEmail,
+      password: cleanPass,
+      fullName: fullName.trim(),
+      role: 'manager',
+      schoolId: id,
+    });
+
+    targetUserId = authSync.authUserId;
+    const now = new Date().toISOString();
+
+    let user = db.getUserByEmail(cleanEmail) || db.getUserById(targetUserId);
+    if (!user) {
+      user = {
+        id: targetUserId,
+        fullName: fullName.trim(),
+        email: cleanEmail,
+        role: 'manager',
+        schoolId: id,
+        accountStatus: 'active',
+        passwordHash: hashPassword(cleanPass),
+        mustChangePassword: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      db.createUser(user);
+    } else {
+      user.id = targetUserId;
+      user.role = 'manager';
+      user.schoolId = id;
+      user.accountStatus = 'active';
+      user.passwordHash = hashPassword(cleanPass);
+      user.mustChangePassword = true;
+      user.updatedAt = now;
+      db.updateUser(user.id, user);
+    }
+  }
+
+  if (!targetUserId) {
+    return res.status(400).json({ error: 'Müdür kullanıcı ID veya Ad Soyad + E-posta bilgisi zorunludur.' });
+  }
+
+  const result = db.assignSchoolManager(id, targetUserId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'ADMIN_ASSIGN_MANAGER',
+    entityType: 'school',
+    entityId: id,
+    details: `Okula tek yetkili müdür atandı: ${result.manager?.fullName} (${result.school?.name})`,
+  });
+
+  return res.json({
+    success: true,
+    message: `Müdür başarıyla ${result.school?.name} okuluna atandı.`,
+    school: result.school,
+    manager: result.manager,
+  });
+});
+
+apiRouter.delete('/schools/:id', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
+  const { id } = req.params;
+  const hard = req.query.hard === 'true';
+  const currentUser = (req as any).user;
+
+  const result = db.deleteSchool(id, hard);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: hard ? 'ADMIN_HARD_DELETE_SCHOOL' : 'ADMIN_ARCHIVE_SCHOOL',
+    entityType: 'school',
+    entityId: id,
+    details: `Okul ${hard ? 'kalıcı olarak silindi' : 'arşive alındı ve ilişkili personeller askıya alındı'}: ${result.school?.name} (${result.school?.code || id})`,
+  });
+
+  return res.json({
+    success: true,
+    message: `"${result.school?.name}" okulu ${hard ? 'kalıcı olarak silindi' : 'başarıyla arşive alındı'}.`,
+    school: result.school,
+  });
+});
+
+apiRouter.get('/admin/schools-summary', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
+  const summary = db.getSchoolsSummary();
+  return res.json({ schools: summary });
+});
+
+apiRouter.get('/breaks', async (req: Request, res: Response) => {
   const schoolId = (req.query.schoolId as string) || 'school-1';
   return res.json({ breaks: db.getBreaks(schoolId) });
 });
 
-apiRouter.post('/breaks', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+apiRouter.post('/breaks', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { name, startTime, endTime, orderDeadlineMinutesBefore, schoolId } = req.body;
   if (!name || !startTime || !endTime) {
     return res.status(400).json({ error: 'Teneffüs adı, başlangıç ve bitiş saati zorunludur.' });
   }
 
+  // Multi-school isolation: Manager can ONLY create breaks for their own school
+  const targetSchoolId = user.role === 'manager' ? user.schoolId : (schoolId || user.schoolId || 'school-1');
+
   const newBreak = {
     id: `break-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    schoolId: schoolId || 'school-1',
+    schoolId: targetSchoolId,
     name: name.trim(),
     startTime: startTime.trim(),
     endTime: endTime.trim(),
@@ -297,59 +1218,177 @@ apiRouter.post('/breaks', requireAuth, requireRole('canteen', 'admin'), (req: Re
   };
 
   db.createBreak(newBreak);
+  db.addAuditLog({
+    action: 'CREATE_BREAK',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: targetSchoolId,
+    entityType: 'break',
+    entityId: newBreak.id,
+    details: `"${newBreak.name}" (${newBreak.startTime}-${newBreak.endTime}) teneffüs aralığı eklendi.`,
+  });
+
   return res.json({ success: true, break: newBreak });
 });
 
-apiRouter.put('/breaks/:id', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+apiRouter.put('/breaks/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { id } = req.params;
   const updates = req.body;
+
+  const allBreaks = db.getBreaks();
+  const existing = allBreaks.find(b => b.id === id);
+  if (!existing) return res.status(404).json({ error: 'Teneffüs bulunamadı.' });
+
+  // Manager can only modify their own school's breaks
+  if (user.role === 'manager' && existing.schoolId !== user.schoolId) {
+    return res.status(403).json({ error: 'Yalnızca kendi okulunuzun teneffüs saatlerini düzenleme yetkiniz vardır.' });
+  }
+
   const updated = db.updateBreak(id, updates);
   if (!updated) return res.status(404).json({ error: 'Teneffüs bulunamadı.' });
+
+  db.addAuditLog({
+    action: 'UPDATE_BREAK',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: updated.schoolId,
+    entityType: 'break',
+    entityId: updated.id,
+    details: `"${updated.name}" teneffüs saatleri güncellendi (Durum: ${updated.activeStatus ? 'Aktif' : 'Pasif'}).`,
+  });
+
   return res.json({ success: true, break: updated });
 });
 
-apiRouter.delete('/breaks/:id', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
+apiRouter.delete('/breaks/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { id } = req.params;
+
+  const allBreaks = db.getBreaks();
+  const existing = allBreaks.find(b => b.id === id);
+  if (!existing) return res.status(404).json({ error: 'Teneffüs bulunamadı.' });
+
+  // Manager can only delete their own school's breaks
+  if (user.role === 'manager' && existing.schoolId !== user.schoolId) {
+    return res.status(403).json({ error: 'Yalnızca kendi okulunuzun teneffüs saatlerini silme yetkiniz vardır.' });
+  }
+
   const deleted = db.deleteBreak(id);
   if (!deleted) return res.status(404).json({ error: 'Teneffüs bulunamadı.' });
+
+  db.addAuditLog({
+    action: 'DELETE_BREAK',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: existing.schoolId,
+    entityType: 'break',
+    entityId: existing.id,
+    details: `"${existing.name}" teneffüs aralığı sistemden silindi.`,
+  });
+
   return res.json({ success: true, message: 'Teneffüs silindi.' });
 });
 
-apiRouter.get('/categories', (req: Request, res: Response) => {
+apiRouter.get('/categories', async (req: Request, res: Response) => {
   const schoolId = (req.query.schoolId as string) || 'school-1';
   return res.json({ categories: db.getCategories(schoolId) });
 });
 
 apiRouter.post('/categories', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { name, productType, schoolId } = req.body;
   if (!name) {
     return res.status(400).json({ error: 'Kategori adı zorunludur.' });
   }
 
+  // Multi-school isolation: Canteen can ONLY create categories for their own school
+  const targetSchoolId = user.role === 'canteen' ? user.schoolId : (schoolId || user.schoolId || 'school-1');
+
   const newCat = {
     id: `cat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    schoolId: schoolId || 'school-1',
+    schoolId: targetSchoolId,
     name: name.trim(),
     productType: productType === 'stationery' ? 'stationery' : 'food',
     activeStatus: true,
   };
 
   db.createCategory(newCat as any);
+  db.addAuditLog({
+    action: 'CREATE_CATEGORY',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: targetSchoolId,
+    entityType: 'category',
+    entityId: newCat.id,
+    details: `"${newCat.name}" kategorisi (${newCat.productType === 'stationery' ? 'Kırtasiye' : 'Yiyecek'}) eklendi.`,
+  });
+
   return res.json({ success: true, category: newCat });
 });
 
 apiRouter.put('/categories/:id', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { id } = req.params;
   const updates = req.body;
+
+  const allCats = db.getCategories();
+  const existing = allCats.find(c => c.id === id);
+  if (!existing) return res.status(404).json({ error: 'Kategori bulunamadı.' });
+
+  // Canteen can only update their own school's categories
+  if (user.role === 'canteen' && existing.schoolId !== user.schoolId) {
+    return res.status(403).json({ error: 'Yalnızca kendi okulunuzun kategorilerini düzenleme yetkiniz vardır.' });
+  }
+
   const updated = db.updateCategory(id, updates);
   if (!updated) return res.status(404).json({ error: 'Kategori bulunamadı.' });
+
+  db.addAuditLog({
+    action: 'UPDATE_CATEGORY',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: updated.schoolId,
+    entityType: 'category',
+    entityId: updated.id,
+    details: `"${updated.name}" kategorisi güncellendi (Durum: ${updated.activeStatus ? 'Aktif' : 'Pasif'}).`,
+  });
+
   return res.json({ success: true, category: updated });
 });
 
 apiRouter.delete('/categories/:id', requireAuth, requireRole('canteen', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
   const { id } = req.params;
+
+  const allCats = db.getCategories();
+  const existing = allCats.find(c => c.id === id);
+  if (!existing) return res.status(404).json({ error: 'Kategori bulunamadı.' });
+
+  // Canteen can only delete their own school's categories
+  if (user.role === 'canteen' && existing.schoolId !== user.schoolId) {
+    return res.status(403).json({ error: 'Yalnızca kendi okulunuzun kategorilerini silme yetkiniz vardır.' });
+  }
+
   const deleted = db.deleteCategory(id);
   if (!deleted) return res.status(404).json({ error: 'Kategori bulunamadı.' });
+
+  db.addAuditLog({
+    action: 'DELETE_CATEGORY',
+    actorUserId: user.id,
+    actorName: user.fullName,
+    actorRole: user.role,
+    schoolId: existing.schoolId,
+    entityType: 'category',
+    entityId: existing.id,
+    details: `"${existing.name}" kategorisi silindi/arşivlendi.`,
+  });
+
   return res.json({ success: true, message: 'Kategori silindi/kapatıldı.' });
 });
 
@@ -562,7 +1601,10 @@ apiRouter.delete('/products/:id', requireAuth, requireRole('canteen', 'admin'), 
 
 apiRouter.get('/orders', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  const { date, breakId, status, search } = req.query;
+  const { date, breakId, status, search, includeArchived, onlyArchived } = req.query;
+
+  const isIncludeArchived = includeArchived === 'true' || user.role === 'parent';
+  const isOnlyArchived = onlyArchived === 'true';
 
   if (user.role === 'parent') {
     const orders = db.getOrders({
@@ -571,19 +1613,34 @@ apiRouter.get('/orders', requireAuth, (req: Request, res: Response) => {
       breakId: breakId as string,
       orderStatus: status as string,
       search: search as string,
+      includeArchived: true,
+      onlyArchived: isOnlyArchived,
     });
     return res.json({ orders });
   } else {
-    // Canteen or Admin sees all school orders
+    // Canteen or Admin sees school orders
     const orders = db.getOrders({
       schoolId: user.schoolId || 'school-1',
       orderDate: date as string,
       breakId: breakId as string,
       orderStatus: status as string,
       search: search as string,
+      includeArchived: isIncludeArchived,
+      onlyArchived: isOnlyArchived,
     });
     return res.json({ orders });
   }
+});
+
+apiRouter.post('/canteen/end-of-day-archive', requireAuth, requireRole('canteen', 'manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const targetSchoolId = user.role === 'admin' ? (req.body.schoolId || undefined) : user.schoolId;
+  const result = executeEndOfDayArchive(targetSchoolId, user.id);
+  return res.json({
+    success: true,
+    archivedCount: result.archivedCount,
+    message: `Gün sonu kapatıldı. ${result.archivedCount} adet tamamlanmış ve iptal edilmiş sipariş arşive aktarıldı. Ertesi gün için sipariş paneli temizlendi.`,
+  });
 });
 
 apiRouter.post('/orders', requireAuth, requireRole('parent'), (req: Request, res: Response) => {
@@ -1242,7 +2299,29 @@ apiRouter.post('/notifications/register-token', requireAuth, (req: Request, res:
 // 10. SYSTEM ADMIN ENDPOINTS
 // ==========================================
 
-apiRouter.get('/admin/users', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
+apiRouter.get('/admin/users', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
+
+  if (supabaseClient && env.isConfigured) {
+    try {
+      const { data: remoteUsers, error } = await supabaseClient
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[Supabase] Failed to fetch users:', error.message);
+      } else if (remoteUsers) {
+        const mappedUsers: User[] = remoteUsers.map(toCamelCase);
+        return res.json({ users: mappedUsers });
+      }
+    } catch (err: any) {
+      console.warn('[Supabase] Exception fetching admin users:', err?.message);
+    }
+  }
+
+  // Fallback to local db only if Supabase is not configured
   const users = db.getUsers().map(u => ({
     id: u.id,
     fullName: u.fullName,
@@ -1255,7 +2334,7 @@ apiRouter.get('/admin/users', requireAuth, requireRole('admin'), (_req: Request,
   return res.json({ users });
 });
 
-apiRouter.post('/admin/users', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
+apiRouter.post('/admin/users', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   const currentUser = (req as any).user as User;
   const { fullName, email, role, schoolId } = req.body;
 
@@ -1263,7 +2342,40 @@ apiRouter.post('/admin/users', requireAuth, requireRole('admin'), (req: Request,
     return res.status(400).json({ error: 'Ad soyad, e-posta ve rol zorunludur.' });
   }
 
-  const existing = db.getUserByEmail(email);
+  const env = getSupabaseEnv();
+  const supabaseClient = getSupabaseClient();
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (supabaseClient && env.isConfigured) {
+    try {
+      const newUserId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const newDbUser = {
+        id: newUserId,
+        full_name: fullName.trim(),
+        email: cleanEmail,
+        role,
+        school_id: schoolId || null,
+        account_status: 'active',
+      };
+      const { data, error } = await supabaseClient
+        .from('users')
+        .insert(newDbUser)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(400).json({ error: `Kullanıcı oluşturulamadı: ${error.message}` });
+      }
+
+      const mapped: User = toCamelCase(data);
+      db.upsertUserFromSupabase(mapped);
+      return res.json({ success: true, user: mapped });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  const existing = db.getUserByEmail(cleanEmail);
   if (existing) {
     return res.status(400).json({ error: 'Bu e-posta adresiyle bir kullanıcı zaten kayıtlı.' });
   }
@@ -1272,7 +2384,7 @@ apiRouter.post('/admin/users', requireAuth, requireRole('admin'), (req: Request,
   const newUser: User = {
     id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     fullName: fullName.trim(),
-    email: email.trim().toLowerCase(),
+    email: cleanEmail,
     role,
     schoolId: schoolId || 'school-1',
     accountStatus: 'active',
@@ -1319,8 +2431,21 @@ apiRouter.put('/admin/users/:id/status', requireAuth, requireRole('admin'), (req
   return res.json({ success: true, user: updated });
 });
 
-apiRouter.get('/admin/audit-logs', requireAuth, requireRole('admin'), (_req: Request, res: Response) => {
-  const logs = db.getAuditLogs(100);
+apiRouter.get('/admin/audit-logs', requireAuth, requireRole('admin', 'manager'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let logs = db.getAuditLogs(100);
+  if (user.role === 'manager' && user.schoolId) {
+    logs = logs.filter(l => !l.schoolId || l.schoolId === user.schoolId);
+  }
+  return res.json({ logs });
+});
+
+apiRouter.get('/manager/audit-logs', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let logs = db.getAuditLogs(100);
+  if (user.role === 'manager' && user.schoolId) {
+    logs = logs.filter(l => !l.schoolId || l.schoolId === user.schoolId);
+  }
   return res.json({ logs });
 });
 
@@ -1335,7 +2460,7 @@ apiRouter.get('/manager/teachers', requireAuth, requireRole('manager', 'admin'),
   return res.json({ teachers });
 });
 
-apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin'), async (req: Request, res: Response) => {
   const currentUser = (req as any).user as User;
   const { fullName, email, branch, tempPassword } = req.body;
 
@@ -1343,21 +2468,36 @@ apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin')
     return res.status(400).json({ error: 'Ad soyad ve e-posta zorunludur.' });
   }
 
-  const existing = db.getUserByEmail(email);
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = db.getUserByEmail(cleanEmail);
   if (existing) {
     return res.status(400).json({ error: 'Bu e-posta adresiyle bir hesap zaten kayıtlı.' });
   }
 
   // School manager can only manage their own school
   const schoolId = currentUser.schoolId || 'school-1';
+  const cleanPass = tempPassword || Math.random().toString(36).substring(2, 8) + 'KC!';
 
+  // 1. Create or sync user in Supabase Auth and public.users
+  const authSync = await createOrSyncAuthUser({
+    email: cleanEmail,
+    password: cleanPass,
+    fullName: fullName.trim(),
+    role: 'teacher',
+    schoolId,
+    titleOrBranch: branch,
+    createdByManagerId: currentUser.id,
+  });
+
+  // 2. Create in local memory DB with the real Auth UUID
   const result = db.createTeacher({
     fullName,
-    email,
+    email: cleanEmail,
     schoolId,
     branch,
-    tempPassword,
+    tempPassword: cleanPass,
     createdByManagerId: currentUser.id,
+    userId: authSync.authUserId,
   });
 
   db.addAuditLog({
@@ -1367,7 +2507,8 @@ apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin')
     action: 'MANAGER_CREATE_TEACHER',
     entityType: 'teacher',
     entityId: result.user.id,
-    details: `Müdür yeni öğretmen hesabı oluşturdu: ${result.user.fullName} (${result.user.email})`,
+    schoolId,
+    details: `Müdür yeni öğretmen hesabı oluşturdu: ${result.user.fullName} (${result.user.email}) [UID: ${authSync.authUserId}]`,
   });
 
   return res.json({
@@ -1376,6 +2517,38 @@ apiRouter.post('/manager/teachers', requireAuth, requireRole('manager', 'admin')
     user: result.user,
     tempPassword: result.tempPassword,
     message: 'Öğretmen hesabı başarıyla oluşturuldu. Geçici şifreyi kullanıcıya iletebilirsiniz.',
+  });
+});
+
+apiRouter.delete('/manager/teachers/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const teacher = db.getTeacherProfiles().find(t => t.id === id);
+  if (!teacher) return res.status(404).json({ error: 'Öğretmen profili bulunamadı.' });
+
+  if (currentUser.role === 'manager' && teacher.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun öğretmenini silemezsiniz.' });
+  }
+
+  const result = db.deleteTeacher(id, teacher.schoolId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_DELETE_TEACHER',
+    entityType: 'teacher',
+    entityId: id,
+    schoolId: teacher.schoolId,
+    details: `Öğretmen hesabı okuldan kaldırıldı: ${teacher.fullName} (${teacher.email})`,
+  });
+
+  return res.json({
+    success: true,
+    message: `"${teacher.fullName}" öğretmen hesabı okuldan başarıyla kaldırıldı. Geçmiş işlem ve tahsis kayıtları korunmuştur.`,
   });
 });
 
@@ -1448,7 +2621,7 @@ apiRouter.get('/manager/canteen-users', requireAuth, requireRole('manager', 'adm
   return res.json({ canteens });
 });
 
-apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'admin'), async (req: Request, res: Response) => {
   const currentUser = (req as any).user as User;
   const { fullName, email, canteenUnit, tempPassword } = req.body;
 
@@ -1456,20 +2629,35 @@ apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'ad
     return res.status(400).json({ error: 'Ad soyad ve e-posta zorunludur.' });
   }
 
-  const existing = db.getUserByEmail(email);
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = db.getUserByEmail(cleanEmail);
   if (existing) {
     return res.status(400).json({ error: 'Bu e-posta adresiyle bir hesap zaten kayıtlı.' });
   }
 
   const schoolId = currentUser.schoolId || 'school-1';
+  const cleanPass = tempPassword || Math.random().toString(36).substring(2, 8) + 'KC!';
 
-  const result = db.createCanteenProfile({
-    fullName,
-    email,
+  // 1. Create or sync user in Supabase Auth and public.users
+  const authSync = await createOrSyncAuthUser({
+    email: cleanEmail,
+    password: cleanPass,
+    fullName: fullName.trim(),
+    role: 'canteen',
     schoolId,
     canteenUnit,
-    tempPassword,
     createdByManagerId: currentUser.id,
+  });
+
+  // 2. Create in local memory DB with the real Auth UUID
+  const result = db.createCanteenProfile({
+    fullName,
+    email: cleanEmail,
+    schoolId,
+    canteenUnit,
+    tempPassword: cleanPass,
+    createdByManagerId: currentUser.id,
+    userId: authSync.authUserId,
   });
 
   db.addAuditLog({
@@ -1479,7 +2667,8 @@ apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'ad
     action: 'MANAGER_CREATE_CANTEEN',
     entityType: 'canteen',
     entityId: result.user.id,
-    details: `Müdür yeni kantinci hesabı oluşturdu: ${result.user.fullName} (${result.user.email})`,
+    schoolId,
+    details: `Müdür yeni kantinci hesabı oluşturdu: ${result.user.fullName} (${result.user.email}) [UID: ${authSync.authUserId}]`,
   });
 
   return res.json({
@@ -1488,6 +2677,38 @@ apiRouter.post('/manager/canteen-users', requireAuth, requireRole('manager', 'ad
     user: result.user,
     tempPassword: result.tempPassword,
     message: 'Kantinci hesabı başarıyla oluşturuldu. Geçici şifreyi kullanıcıya iletebilirsiniz.',
+  });
+});
+
+apiRouter.delete('/manager/canteen-users/:id', requireAuth, requireRole('manager', 'admin'), (req: Request, res: Response) => {
+  const currentUser = (req as any).user as User;
+  const { id } = req.params;
+  const canteen = db.getCanteenProfiles().find(c => c.id === id);
+  if (!canteen) return res.status(404).json({ error: 'Kantinci profili bulunamadı.' });
+
+  if (currentUser.role === 'manager' && canteen.schoolId !== currentUser.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun kantincisini silemezsiniz.' });
+  }
+
+  const result = db.deleteCanteenProfile(id, canteen.schoolId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  db.addAuditLog({
+    actorUserId: currentUser.id,
+    actorName: currentUser.fullName,
+    actorRole: currentUser.role,
+    action: 'MANAGER_DELETE_CANTEEN',
+    entityType: 'canteen',
+    entityId: id,
+    schoolId: canteen.schoolId,
+    details: `Kantinci hesabı okuldan kaldırıldı: ${canteen.fullName} (${canteen.email})`,
+  });
+
+  return res.json({
+    success: true,
+    message: `"${canteen.fullName}" kantinci hesabı okuldan başarıyla kaldırıldı. Geçmiş teslimat ve finansal kayıtlar korunmuştur.`,
   });
 });
 
@@ -1548,7 +2769,7 @@ apiRouter.post('/manager/canteen-users/:id/reset-password', requireAuth, require
   return res.json({
     success: true,
     tempPassword: newTempPassword,
-    message: 'Yeni geçici şifre oluşturuldu.',
+    message: 'Yeni geçici şifre oluşturuldu. İlk girişte şifre değiştirme zorunluluğu aktiftir.',
   });
 });
 
@@ -1635,11 +2856,21 @@ apiRouter.post('/teacher/needs/:id/renew-code', requireAuth, requireRole('teache
   return res.json({ success: true, newCode: result.newCode, message: 'İhtiyaç kodu başarıyla yenilendi.' });
 });
 
-apiRouter.delete('/teacher/needs/:id', requireAuth, requireRole('teacher', 'admin'), (req: Request, res: Response) => {
+apiRouter.delete('/teacher/needs/:id', requireAuth, requireRole('teacher', 'manager', 'admin'), (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const { id } = req.params;
 
-  const result = db.cancelStudentNeed(id, user.id);
+  const need = db.getStudentNeeds().find(n => n.id === id);
+  if (!need) {
+    return res.status(404).json({ error: 'Öğrenci ihtiyaç kaydı bulunamadı.' });
+  }
+
+  // Cross-school check
+  if (user.role !== 'admin' && need.schoolId !== user.schoolId) {
+    return res.status(403).json({ error: 'Farklı bir okulun öğrenci kaydını silemezsiniz.' });
+  }
+
+  const result = db.deleteStudentNeed(id, need.schoolId);
   if (!result.success) {
     return res.status(400).json({ error: result.error });
   }
@@ -1648,13 +2879,17 @@ apiRouter.delete('/teacher/needs/:id', requireAuth, requireRole('teacher', 'admi
     actorUserId: user.id,
     actorName: user.fullName,
     actorRole: user.role,
-    action: 'TEACHER_CANCEL_STUDENT_NEED',
-    entityType: 'studentNeed',
+    action: 'TEACHER_REMOVE_STUDENT_NEED',
+    entityType: 'need',
     entityId: id,
-    details: `Öğrenci ihtiyaç kaydı kapatıldı/iptal edildi.`,
+    schoolId: need.schoolId,
+    details: `Öğrenci ihtiyaç listesinden kaldırıldı: ${need.studentName} (${need.studentReferenceId}) [Kod: ${need.needCodeReference}]`,
   });
 
-  return res.json({ success: true, message: 'İhtiyaç kaydı iptal edildi.' });
+  return res.json({
+    success: true,
+    message: `"${need.studentName}" ihtiyaç listesinden başarıyla kaldırıldı. Öğrencinin genel sistem hesabı ve geçmiş kayıtları korunmuştur.`,
+  });
 });
 
 apiRouter.get('/teacher/available-donations', requireAuth, requireRole('teacher', 'admin', 'manager'), (req: Request, res: Response) => {

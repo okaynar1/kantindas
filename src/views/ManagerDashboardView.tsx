@@ -21,13 +21,15 @@ import {
   EyeOff,
   Building2,
   TrendingUp,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { User, TeacherProfile, CanteenProfile, ManagerReportSummary, AuditLog, BreakTime } from '../types.ts';
 
 export const ManagerDashboardView: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, school, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState<string>('overview');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -64,6 +66,18 @@ export const ManagerDashboardView: React.FC = () => {
   const [newPass, setNewPass] = useState('');
   const [newPassRepeat, setNewPassRepeat] = useState('');
 
+  // Break form states for Kurum Müdürü
+  const [isCreatingBreak, setIsCreatingBreak] = useState(false);
+  const [newBreakName, setNewBreakName] = useState('');
+  const [newBreakStart, setNewBreakStart] = useState('10:00');
+  const [newBreakEnd, setNewBreakEnd] = useState('10:15');
+  const [newBreakLimit, setNewBreakLimit] = useState(15);
+  const [confirmDeleteBreak, setConfirmDeleteBreak] = useState<BreakTime | null>(null);
+
+  // Deletion modals for teachers and canteen users
+  const [deleteTeacherModal, setDeleteTeacherModal] = useState<TeacherProfile | null>(null);
+  const [deleteCanteenModal, setDeleteCanteenModal] = useState<CanteenProfile | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
     setMsg(null);
@@ -72,8 +86,11 @@ export const ManagerDashboardView: React.FC = () => {
         api.getManagerTeachers(),
         api.getManagerCanteenUsers(),
         api.getManagerReports(),
-        api.getAuditLogs(),
-        api.getBreaks(),
+        api.getManagerAuditLogs().catch((auditErr: any) => {
+          console.warn('[ManagerDashboard] Audit logs load warning:', auditErr?.message);
+          return { logs: [] };
+        }),
+        api.getBreaks(user?.schoolId),
         api.getStudents(),
       ]);
       setTeachers(tRes.teachers || []);
@@ -92,6 +109,52 @@ export const ManagerDashboardView: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [user]);
+
+  // Break Management Handlers
+  const handleCreateBreak = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      await api.createBreak({
+        name: newBreakName,
+        startTime: newBreakStart,
+        endTime: newBreakEnd,
+        orderDeadlineMinutesBefore: newBreakLimit,
+        schoolId: user?.schoolId,
+      });
+      setMsg({ type: 'success', text: `"${newBreakName}" teneffüs ve sipariş aralığı okulunuza başarıyla eklendi.` });
+      setNewBreakName('');
+      setIsCreatingBreak(false);
+      await fetchData();
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Teneffüs eklenemedi.' });
+    }
+  };
+
+  const handleToggleBreak = async (b: BreakTime) => {
+    try {
+      await api.updateBreak(b.id, { activeStatus: !b.activeStatus });
+      setMsg({
+        type: 'success',
+        text: `"${b.name}" ${!b.activeStatus ? 'siparişe açıldı' : 'siparişe kapatıldı'}.`,
+      });
+      await fetchData();
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Teneffüs durumu değiştirilemedi.' });
+    }
+  };
+
+  const handleDeleteBreak = async () => {
+    if (!confirmDeleteBreak) return;
+    try {
+      await api.deleteBreak(confirmDeleteBreak.id);
+      setMsg({ type: 'success', text: `"${confirmDeleteBreak.name}" teneffüs saati başarıyla silindi.` });
+      setConfirmDeleteBreak(null);
+      await fetchData();
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Teneffüs silinemedi.' });
+    }
+  };
 
   // Create Teacher
   const handleCreateTeacher = async (e: React.FormEvent) => {
@@ -211,6 +274,30 @@ export const ManagerDashboardView: React.FC = () => {
     }
   };
 
+  const handleDeleteTeacher = async () => {
+    if (!deleteTeacherModal) return;
+    try {
+      const res = await api.deleteManagerTeacher(deleteTeacherModal.id);
+      setMsg({ type: 'success', text: res.message || 'Öğretmen hesabı okuldan kaldırıldı.' });
+      setDeleteTeacherModal(null);
+      await fetchData();
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Öğretmen silinemedi.' });
+    }
+  };
+
+  const handleDeleteCanteen = async () => {
+    if (!deleteCanteenModal) return;
+    try {
+      const res = await api.deleteManagerCanteenUser(deleteCanteenModal.id);
+      setMsg({ type: 'success', text: res.message || 'Kantinci hesabı okuldan kaldırıldı.' });
+      setDeleteCanteenModal(null);
+      await fetchData();
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message || 'Kantinci silinemedi.' });
+    }
+  };
+
   // Change Password
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,7 +334,7 @@ export const ManagerDashboardView: React.FC = () => {
             <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
               Kurum Müdürü Portali
             </span>
-            <span className="text-xs text-stone-300">Atatürk İlkokulu ve Ortaokulu</span>
+            <span className="text-xs text-stone-300">{school?.name || 'Kurum Müdürü Portali'}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-serif tracking-tight">
             Hoş Geldiniz, {user?.fullName}
@@ -599,6 +686,14 @@ export const ManagerDashboardView: React.FC = () => {
                       >
                         {t.accountStatus === 'active' ? 'Askıya Al' : 'Aktifleştir'}
                       </button>
+                      <button
+                        onClick={() => setDeleteTeacherModal(t)}
+                        className="px-2.5 py-1 text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                        title="Öğretmen hesabını okuldan kaldır"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Kaldır
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -775,6 +870,14 @@ export const ManagerDashboardView: React.FC = () => {
                       >
                         {c.accountStatus === 'active' ? 'Askıya Al' : 'Aktifleştir'}
                       </button>
+                      <button
+                        onClick={() => setDeleteCanteenModal(c)}
+                        className="px-2.5 py-1 text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                        title="Kantinci hesabını okuldan kaldır"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Kaldır
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -841,7 +944,7 @@ export const ManagerDashboardView: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold text-stone-900">Okul Öğrenci ve Sınıf Tanımları</h2>
               <p className="text-xs text-stone-500">
-                Atatürk İlkokulu ve Ortaokulu bünyesindeki kayıtlı öğrenciler ({students.length} öğrenci).
+                {school?.name || 'Okul'} bünyesindeki kayıtlı öğrenciler ({students.length} öğrenci).
               </p>
             </div>
           </div>
@@ -882,33 +985,161 @@ export const ManagerDashboardView: React.FC = () => {
       {/* 6. TENEFFÜS VE SİPARİŞ AYARLARI */}
       {activeMenu === 'breaks' && (
         <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-lg font-bold text-stone-900">Teneffüs ve Ön Sipariş Zaman Dilimleri</h2>
-            <p className="text-xs text-stone-500">
-              Öğrencilerin teneffüste taze sıcak gıda teslim alabilmesi için belirlenen resmi teneffüs saatleri.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-800" />
+                <h2 className="text-lg font-bold text-stone-900">Teneffüs Saatleri ve Sipariş Kabul Aralıkları</h2>
+              </div>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Okulunuzun resmi zil programı ve öğrencilerin sıcak beslenme teslimat saatleri. Veliler yalnızca burada belirlenen aktif zaman dilimlerine ön sipariş verebilir.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsCreatingBreak(!isCreatingBreak)}
+              className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-colors flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              + Yeni Teneffüs Ekle
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {breaks.map(b => (
-              <div
-                key={b.id}
-                className={`p-4 rounded-2xl border ${
-                  b.activeStatus ? 'border-emerald-200 bg-emerald-50/20' : 'border-stone-200 bg-stone-50 opacity-60'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-900">{b.name}</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          {/* Yeni Teneffüs Ekleme Formu */}
+          {isCreatingBreak && (
+            <form onSubmit={handleCreateBreak} className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">
+              <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-800" />
+                Okulunuz İçin Yeni Teneffüs / Zil Saati Tanımla
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Teneffüs Adı *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newBreakName}
+                    onChange={e => setNewBreakName(e.target.value)}
+                    placeholder="Örn: 2. Teneffüs / Beslenme Saati"
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white focus:outline-emerald-700"
+                  />
                 </div>
-                <p className="text-base font-black font-mono text-emerald-900 mt-2">
-                  {b.startTime} - {b.endTime}
-                </p>
-                <p className="text-[10px] text-stone-400 mt-1">
-                  Ön sipariş limiti: {b.orderDeadlineMinutesBefore || 15} dk önce
-                </p>
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Başlangıç Saati *</label>
+                  <input
+                    type="time"
+                    required
+                    value={newBreakStart}
+                    onChange={e => setNewBreakStart(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white focus:outline-emerald-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Bitiş Saati *</label>
+                  <input
+                    type="time"
+                    required
+                    value={newBreakEnd}
+                    onChange={e => setNewBreakEnd(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white focus:outline-emerald-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Ön Sipariş Kabul Limiti (Dk Önce)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={newBreakLimit}
+                    onChange={e => setNewBreakLimit(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white focus:outline-emerald-700"
+                  />
+                  <span className="text-[10px] text-stone-400">Zilden kaç dakika önceye kadar sipariş verilebilir</span>
+                </div>
               </div>
-            ))}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingBreak(false)}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-200 rounded-xl cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 shadow-xs cursor-pointer"
+                >
+                  Teneffüsü Kaydet
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Teneffüs Listesi */}
+          {breaks.length === 0 ? (
+            <div className="py-12 text-center bg-stone-50 rounded-2xl border border-stone-200 space-y-2">
+              <Clock className="w-10 h-10 text-stone-300 mx-auto" />
+              <p className="text-sm font-semibold text-stone-700">Henüz tanımlı teneffüs saati bulunmuyor.</p>
+              <p className="text-xs text-stone-400">Yukarıdaki butona tıklayarak okulunuzun ilk zil ve teneffüs saatini ekleyebilirsiniz.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {breaks.map(b => (
+                <div
+                  key={b.id}
+                  className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-shadow shadow-2xs ${
+                    b.activeStatus ? 'border-emerald-200 bg-emerald-50/25' : 'border-stone-200 bg-stone-50 opacity-65'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-stone-900">{b.name}</span>
+                      <button
+                        onClick={() => setConfirmDeleteBreak(b)}
+                        className="text-stone-400 hover:text-red-600 p-1 rounded-lg transition-colors cursor-pointer"
+                        title="Teneffüsü Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <p className="text-lg font-black font-mono text-emerald-900 mt-2 tracking-tight">
+                      {b.startTime} - {b.endTime}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-stone-500 mt-1">
+                      <span>Ön sipariş limiti:</span>
+                      <span className="font-semibold text-stone-800">{b.orderDeadlineMinutesBefore || 15} dk önce</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => handleToggleBreak(b)}
+                      className={`text-[11px] font-bold py-1.5 px-3 rounded-xl border transition-all cursor-pointer w-full text-center ${
+                        b.activeStatus
+                          ? 'border-emerald-300 bg-emerald-100/70 text-emerald-800 hover:bg-emerald-200/60'
+                          : 'border-stone-300 bg-stone-200/60 text-stone-700 hover:bg-stone-300'
+                      }`}
+                    >
+                      {b.activeStatus ? '✓ Siparişe Açık' : '✕ Kapalı'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bilgilendirme Kutusu */}
+          <div className="p-4 rounded-xl bg-stone-50 border border-stone-200 flex items-start gap-3 text-xs text-stone-600">
+            <ShieldCheck className="w-4 h-4 text-emerald-800 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold text-stone-900">Çok Okullu Güvenlik İzolasyonu & Kantin Entegrasyonu</p>
+              <p className="text-[11px] text-stone-500">
+                Belirlediğiniz bu teneffüs saatleri doğrudan kantin görevlinizin ekranında görüntülenir ve öğrencilerin sipariş kabul saatlerini sınırlar. Yalnızca okulunuza özeldir; başka okullar veya merkezi yönetim bu saatleri okulunuz adına değiştiremez.
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -1058,6 +1289,124 @@ export const ManagerDashboardView: React.FC = () => {
               Şifreyi Güncelle
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Teneffüs Silme Onay Modalı */}
+      {confirmDeleteBreak && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-stone-200 space-y-4">
+            <h3 className="font-bold text-base text-stone-900">Teneffüs Saatini Sil</h3>
+            <p className="text-sm text-stone-600">
+              <span className="font-semibold text-stone-900">"{confirmDeleteBreak.name}"</span> ({confirmDeleteBreak.startTime} - {confirmDeleteBreak.endTime}) teneffüs aralığını okul programınızdan silmek istediğinize emin misiniz?
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteBreak(null)}
+                className="px-3.5 py-1.5 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold hover:bg-stone-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteBreak}
+                className="px-4 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 shadow-xs cursor-pointer"
+              >
+                Evet, Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Öğretmen Hesabını Kaldırma Modalı */}
+      {deleteTeacherModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="w-6 h-6 shrink-0" />
+              <div>
+                <h3 className="font-bold text-base text-stone-900">Öğretmen Hesabını Kaldır</h3>
+                <p className="text-xs text-stone-500 font-medium">{deleteTeacherModal.fullName}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              <strong className="text-stone-900">{deleteTeacherModal.fullName}</strong> ({deleteTeacherModal.email}) öğretmen hesabını okulunuzdan kaldırmak üzeresiniz.
+            </p>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-bold">Veri Güvenliği ve Kayıt Koruma:</p>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                <li>Öğretmenin okul erişimi ve yetkisi derhal kapatılır.</li>
+                <li>Geçmişte açtığı öğrenci ihtiyaç kayıtları ve tahsis geçmişi şeffaflık ve denetim için korunur.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTeacherModal(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold hover:bg-stone-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTeacher}
+                className="px-4 py-2 rounded-xl bg-red-700 text-white text-xs font-bold hover:bg-red-800 shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Hesabı Okuldan Kaldır
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kantinci Hesabını Kaldırma Modalı */}
+      {deleteCanteenModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="w-6 h-6 shrink-0" />
+              <div>
+                <h3 className="font-bold text-base text-stone-900">Kantinci Hesabını Kaldır</h3>
+                <p className="text-xs text-stone-500 font-medium">{deleteCanteenModal.fullName}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              <strong className="text-stone-900">{deleteCanteenModal.fullName}</strong> ({deleteCanteenModal.email}) kantin personeli hesabını okulunuzdan kaldırmak üzeresiniz.
+            </p>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-bold">Veri Güvenliği ve Kayıt Koruma:</p>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                <li>Kantincinin okul kantin ekranına ve sipariş listelerine erişimi kapatılır.</li>
+                <li>Daha önce teslim ettiği siparişlerin, ödemelerin ve yardım paketlerinin geçmiş kayıtları korunur.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteCanteenModal(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-600 text-xs font-bold hover:bg-stone-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCanteen}
+                className="px-4 py-2 rounded-xl bg-red-700 text-white text-xs font-bold hover:bg-red-800 shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Hesabı Okuldan Kaldır
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

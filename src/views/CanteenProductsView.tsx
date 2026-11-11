@@ -20,6 +20,13 @@ export const CanteenProductsView: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Category management states
+  const [showCategoriesPanel, setShowCategoriesPanel] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatType, setNewCatType] = useState<'food' | 'stationery'>('food');
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -80,6 +87,51 @@ export const CanteenProductsView: React.FC = () => {
     }
   };
 
+  // Category Handlers for Kantinci
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      await api.createCategory({
+        name: newCatName.trim(),
+        productType: newCatType,
+        schoolId: user?.schoolId,
+      });
+      setActionNotice({ type: 'success', text: `"${newCatName.trim()}" kategorisi okulunuza başarıyla eklendi.` });
+      setNewCatName('');
+      setIsCreatingCategory(false);
+      await fetchProducts();
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err.message || 'Kategori eklenemedi.' });
+    }
+  };
+
+  const handleToggleCategory = async (cat: Category) => {
+    try {
+      await api.updateCategory(cat.id, { activeStatus: !cat.activeStatus });
+      setActionNotice({
+        type: 'success',
+        text: `"${cat.name}" kategorisi ${!cat.activeStatus ? 'aktifleştirildi' : 'pasife alındı'}.`,
+      });
+      await fetchProducts();
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err.message || 'Kategori durumu değiştirilemedi.' });
+    }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    try {
+      await api.deleteCategory(categoryToDelete.id);
+      setActionNotice({ type: 'success', text: `"${categoryToDelete.name}" kategorisi silindi/arşivlendi.` });
+      setCategoryToDelete(null);
+      await fetchProducts();
+    } catch (err: any) {
+      setActionNotice({ type: 'error', text: err.message || 'Kategori silinemedi.' });
+      setCategoryToDelete(null);
+    }
+  };
+
   const filteredProducts = products.filter(p => {
     const matchType = typeFilter === 'all' || p.productType === typeFilter;
     const matchLowStock = !lowStockOnly || (p.stockQuantity <= 10 && p.activeStatus);
@@ -96,17 +148,31 @@ export const CanteenProductsView: React.FC = () => {
             Kantin Ürün & Stok Yönetimi
           </h1>
           <p className="text-xs text-stone-500">
-            Kantin ve kırtasiye ürünlerini ekleyin, fiyatları ve stokları anlık güncelleyin.
+            Kantin ve kırtasiye ürünlerini ekleyin, okul kategorilerini düzenleyin ve stokları anlık güncelleyin.
           </p>
         </div>
 
-        <button
-          onClick={() => { setEditingProduct(null); setModalOpen(true); }}
-          className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Ürün Ekle
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setShowCategoriesPanel(!showCategoriesPanel)}
+            className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
+              showCategoriesPanel
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
+                : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50'
+            }`}
+          >
+            <Tag className="w-4 h-4 text-indigo-600" />
+            {showCategoriesPanel ? 'Kategorileri Gizle' : `Kategori Yönetimi (${categories.length})`}
+          </button>
+
+          <button
+            onClick={() => { setEditingProduct(null); setModalOpen(true); }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Ürün Ekle
+          </button>
+        </div>
       </div>
 
       {actionNotice && (
@@ -119,6 +185,147 @@ export const CanteenProductsView: React.FC = () => {
         >
           <span>{actionNotice.text}</span>
           <button onClick={() => setActionNotice(null)} className="font-bold ml-2">✕</button>
+        </div>
+      )}
+
+      {/* Category Management Drawer/Section */}
+      {showCategoriesPanel && (
+        <div className="bg-white rounded-2xl border border-indigo-200 p-5 shadow-sm space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-indigo-700" />
+              <div>
+                <h2 className="font-bold text-sm text-stone-900">Kantin ve Kırtasiye Kategorileri Yönetimi</h2>
+                <p className="text-[11px] text-stone-500">
+                  Okulunuzun ürün gruplandırma menüsü. Eklediğiniz kategoriler ürün ekleme/düzenleme pencerelerinde otomatik görünür.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsCreatingCategory(!isCreatingCategory)}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              + Yeni Kategori Ekle
+            </button>
+          </div>
+
+          {/* New Category Form */}
+          {isCreatingCategory && (
+            <form onSubmit={handleCreateCategory} className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-200 space-y-3">
+              <h4 className="text-xs font-bold text-indigo-950">Okulunuza Yeni Kategori Tanımlayın</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Kategori Adı *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCatName}
+                    onChange={e => setNewCatName(e.target.value)}
+                    placeholder="Örn: Sıcak Çorbalar & Tostlar"
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white focus:outline-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Kategori Türü *</label>
+                  <select
+                    value={newCatType}
+                    onChange={e => setNewCatType(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white font-semibold focus:outline-indigo-600"
+                  >
+                    <option value="food">Kantin Yiyecek & İçecek Menüsü</option>
+                    <option value="stationery">Eğitim & Kırtasiye Destek Ürünleri</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingCategory(false)}
+                  className="px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-200 rounded-lg cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 shadow-xs cursor-pointer"
+                >
+                  Kategoriyi Kaydet
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Categories Grid */}
+          {categories.length === 0 ? (
+            <div className="py-8 text-center bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-500">
+              Okulunuza ait kayıtlı kategori bulunmuyor. Yeni kategori ekleyerek ürünlerinizi gruplandırabilirsiniz.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {categories.map(cat => {
+                const productCount = products.filter(p => p.categoryId === cat.id).length;
+                return (
+                  <div
+                    key={cat.id}
+                    className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2 transition-all ${
+                      cat.activeStatus
+                        ? 'border-stone-200 bg-stone-50/80 hover:border-indigo-200'
+                        : 'border-stone-200 bg-stone-100 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-stone-900 truncate">{cat.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              cat.productType === 'food'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-indigo-100 text-indigo-800'
+                            }`}
+                          >
+                            {cat.productType === 'food' ? 'Kantin Yiyecek' : 'Kırtasiye'}
+                          </span>
+                          <span className="text-[10px] text-stone-400">
+                            {productCount} ürün
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setCategoryToDelete(cat)}
+                        className="text-stone-400 hover:text-red-600 p-1 rounded-md transition-colors cursor-pointer"
+                        title="Kategoriyi Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between">
+                      <button
+                        onClick={() => handleToggleCategory(cat)}
+                        className={`text-[10px] font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer w-full text-center ${
+                          cat.activeStatus
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                            : 'border-stone-300 bg-stone-200 text-stone-700 hover:bg-stone-300'
+                        }`}
+                      >
+                        {cat.activeStatus ? '✓ Satışta Aktif' : '✕ Pasif'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="text-[11px] text-stone-400 flex items-center gap-1.5 pt-1">
+            <Store className="w-3.5 h-3.5 text-stone-400" />
+            <span>Kategoriler yalnızca sizin okulunuza aittir ve diğer okulların menülerini etkilemez.</span>
+          </div>
         </div>
       )}
 
@@ -324,6 +531,35 @@ export const CanteenProductsView: React.FC = () => {
                 className="px-4 py-1.5 text-xs font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
               >
                 Evet, Kaldır
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Delete Confirmation Modal */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-stone-200 space-y-4">
+            <h3 className="font-bold text-base text-stone-900">Kategoriyi Sil</h3>
+            <p className="text-xs text-stone-600">
+              <strong>"{categoryToDelete.name}"</strong> kategorisini silmek/arşivlemek istediğinize emin misiniz?
+              Bu kategoriye bağlı ürünler menüde kalır ancak kategori bağlantıları kaldırılır.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                className="px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-100 rounded-lg cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteCategory}
+                className="px-4 py-1.5 text-xs font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
+              >
+                Evet, Sil
               </button>
             </div>
           </div>

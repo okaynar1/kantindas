@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Product, NotificationItem } from '../types.ts';
+import { User, School, Product, NotificationItem } from '../types.ts';
 import { api, getStoredToken, setStoredToken, removeStoredToken } from '../services/api.ts';
 
 export interface CartItem {
@@ -13,8 +13,15 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password?: string) => Promise<void>;
   quickLogin: (userId: string) => Promise<void>;
-  register: (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean }) => Promise<void>;
+  register: (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean; schoolCode?: string }) => Promise<any>;
   logout: () => void;
+  // School Data (Dynamic per tenant)
+  school: School | null;
+  schoolLoading: boolean;
+  schoolError: string | null;
+  adminSelectedSchool: School | null;
+  setAdminSelectedSchool: (school: School | null) => void;
+  refreshSchool: () => Promise<void>;
   // Cart
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number) => void;
@@ -40,6 +47,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(getStoredToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Dynamic School state
+  const [school, setSchool] = useState<School | null>(null);
+  const [schoolLoading, setSchoolLoading] = useState<boolean>(false);
+  const [schoolError, setSchoolError] = useState<string | null>(null);
+  const [adminSelectedSchool, setAdminSelectedSchool] = useState<School | null>(null);
+
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('kantincep_cart');
@@ -56,6 +70,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('kantincep_cart', JSON.stringify(cart));
   }, [cart]);
 
+  const fetchSchoolForUser = async (targetUser: User | null, preloadedSchool?: School | null) => {
+    if (!targetUser) {
+      setSchool(null);
+      setSchoolLoading(false);
+      setSchoolError(null);
+      return;
+    }
+
+    // Central System Admin manages all schools, no single fixed school
+    if (targetUser.role === 'admin') {
+      setSchool(null);
+      setSchoolLoading(false);
+      setSchoolError(null);
+      return;
+    }
+
+    if (preloadedSchool) {
+      setSchool(preloadedSchool);
+      setSchoolLoading(false);
+      setSchoolError(null);
+      return;
+    }
+
+    if (!targetUser.schoolId) {
+      setSchool(null);
+      setSchoolLoading(false);
+      setSchoolError('Kullanıcıya atanmış bir okul bulunamadı.');
+      return;
+    }
+
+    setSchoolLoading(true);
+    setSchoolError(null);
+    try {
+      const res = await api.getSchoolById(targetUser.schoolId);
+      if (res && res.school) {
+        setSchool(res.school);
+      } else {
+        setSchool(null);
+        setSchoolError('Kayıtlı okul bilgisine ulaşılamadı.');
+      }
+    } catch (err: any) {
+      console.warn('Okul yükleme hatası:', err);
+      setSchool(null);
+      setSchoolError(err.message || 'Okul bilgisi alınamadı.');
+    } finally {
+      setSchoolLoading(false);
+    }
+  };
+
+  const refreshSchool = async () => {
+    if (user) {
+      await fetchSchoolForUser(user);
+    }
+  };
+
   // Load quick accounts and current session
   useEffect(() => {
     async function init() {
@@ -66,21 +135,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const currentToken = getStoredToken();
         if (currentToken) {
-          const { user: me } = await api.getMe();
-          setUser(me);
-          // fetch notifications
-          const notifRes = await api.getNotifications();
-          setNotifications(notifRes.notifications);
-        } else {
-          // Default start with parent for immediate demonstration
-          if (users.length > 0) {
-            const defaultParent = users.find(u => u.role === 'parent') || users[0];
-            setStoredToken(defaultParent.id);
-            setToken(defaultParent.id);
-            const { user: me } = await api.getMe();
+          try {
+            const { user: me, school: preloadedSchool } = await api.getMe();
             setUser(me);
+            await fetchSchoolForUser(me, preloadedSchool);
             const notifRes = await api.getNotifications();
             setNotifications(notifRes.notifications);
+          } catch {
+            // Stale or invalid session: clean up stored token
+            removeStoredToken();
+            setToken(null);
+            setUser(null);
           }
         }
       } catch (err) {
@@ -95,8 +160,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshUserData = async () => {
     if (!token) return;
     try {
-      const { user: me } = await api.getMe();
+      const { user: me, school: preloadedSchool } = await api.getMe();
       setUser(me);
+      await fetchSchoolForUser(me, preloadedSchool);
       await refreshNotifications();
     } catch (e) {
       console.error(e);
@@ -118,6 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setStoredToken(res.token);
     setToken(res.token);
     setUser(res.user);
+    await fetchSchoolForUser(res.user, res.school);
     const notifRes = await api.getNotifications();
     setNotifications(notifRes.notifications);
   };
@@ -127,27 +194,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (found) {
       setStoredToken(userId);
       setToken(userId);
-      const { user: me } = await api.getMe();
+      const { user: me, school: preloadedSchool } = await api.getMe();
       setUser(me);
+      await fetchSchoolForUser(me, preloadedSchool);
       const notifRes = await api.getNotifications();
       setNotifications(notifRes.notifications);
     }
   };
 
-  const register = async (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean }) => {
+  const register = async (payload: { fullName: string; email: string; password: string; passwordRepeat: string; kvkkConsent: boolean; schoolCode?: string }) => {
     const res = await api.register(payload);
-    setStoredToken(res.token);
-    setToken(res.token);
-    setUser(res.user);
+    if (res.token) {
+      setStoredToken(res.token);
+      setToken(res.token);
+      setUser(res.user);
+      await fetchSchoolForUser(res.user, res.school);
+    }
     // Reload quick users
-    const qRes = await api.getQuickAccounts();
-    setQuickUsers(qRes.users);
+    try {
+      const qRes = await api.getQuickAccounts();
+      setQuickUsers(qRes.users);
+    } catch {
+      // ignore
+    }
+    return res;
   };
 
   const logout = () => {
     removeStoredToken();
     setToken(null);
     setUser(null);
+    setSchool(null);
+    setAdminSelectedSchool(null);
+    setSchoolError(null);
     setCart([]);
     setNotifications([]);
   };
@@ -219,6 +298,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           quickLogin,
           register,
           logout,
+          school,
+          schoolLoading,
+          schoolError,
+          adminSelectedSchool,
+          setAdminSelectedSchool,
+          refreshSchool,
           cart,
           addToCart,
           removeFromCart,

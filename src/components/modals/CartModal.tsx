@@ -47,13 +47,14 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onOrderCo
     async function loadData() {
       try {
         const [studRes, brkRes] = await Promise.all([
-          api.getStudents(),
-          api.getBreaks(user?.schoolId || 'school-1'),
+          user ? api.getStudents().catch(() => ({ students: [] })) : Promise.resolve({ students: [] }),
+          api.getBreaks(user?.schoolId || 'school-1').catch(() => ({ breaks: [] })),
         ]);
 
-        setStudents(studRes.students);
-        if (studRes.students.length > 0 && !selectedStudentId) {
-          setSelectedStudentId(studRes.students[0].id);
+        const studentList = studRes?.students || [];
+        setStudents(studentList);
+        if (studentList.length > 0 && !selectedStudentId) {
+          setSelectedStudentId(studentList[0].id);
         }
 
         const activeBreaks = brkRes.breaks.filter(b => b.activeStatus);

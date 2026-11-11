@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { syncToSupabase, deleteFromSupabase } from './supabase.ts';
 import {
   User,
   School,
@@ -115,9 +116,11 @@ function getInitialSeedData(): DatabaseSchema {
 
   const defaultSchool: School = {
     id: schoolId,
+    code: 'ATATURK01',
     name: 'Atatürk İlkokulu ve Ortaokulu',
     address: 'Meşrutiyet Cad. No:44 Çankaya / Ankara',
     timezone: 'Europe/Istanbul',
+    managerUserId: 'user-manager-1',
     activeStatus: true,
   };
 
@@ -1063,6 +1066,15 @@ class Database {
         parsed.pushSubscriptions = parsed.pushSubscriptions || [];
 
         const initial = getInitialSeedData();
+        // Ensure schools have code and managerUserId
+        if (parsed.schools && parsed.schools.length > 0) {
+          for (const s of parsed.schools) {
+            if (!s.code) s.code = s.id === 'school-1' ? 'ATATURK01' : `SCH-${s.id.toUpperCase()}`;
+            if (!s.managerUserId && s.id === 'school-1') s.managerUserId = 'user-manager-1';
+          }
+        } else {
+          parsed.schools = initial.schools;
+        }
         // Ensure all required default users exist
         for (const u of initial.users) {
           const found = parsed.users.find((existing: User) => existing.id === u.id || existing.email.toLowerCase() === u.email.toLowerCase());
@@ -1123,6 +1135,14 @@ class Database {
     }
   }
 
+  private sync(table: string, record: any) {
+    syncToSupabase(table, record).catch(() => {});
+  }
+
+  private deleteSync(table: string, id: string) {
+    deleteFromSupabase(table, id).catch(() => {});
+  }
+
   // --- Users ---
   getUsers(): User[] {
     return this.data.users;
@@ -1139,7 +1159,45 @@ class Database {
   createUser(user: User): User {
     this.data.users.push(user);
     this.writeToDisk();
+    this.sync('users', {
+      id: user.id,
+      full_name: user.fullName,
+      email: user.email,
+      role: user.role,
+      school_id: user.schoolId,
+      account_status: user.accountStatus,
+      phone: user.phone,
+      password_hash: user.passwordHash,
+      must_change_password: !!user.mustChangePassword,
+      title_or_branch: user.titleOrBranch,
+      canteen_unit: user.canteenUnit,
+      created_by_manager_id: user.createdByManagerId,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    });
     return user;
+  }
+
+  upsertUserFromSupabase(user: User): User {
+    const idx = this.data.users.findIndex(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    if (idx !== -1) {
+      this.data.users[idx] = { ...this.data.users[idx], ...user };
+    } else {
+      this.data.users.push(user);
+    }
+    this.writeToDisk();
+    return user;
+  }
+
+  upsertSchoolFromSupabase(school: School): School {
+    const idx = this.data.schools.findIndex(s => s.id === school.id || (s.code && s.code === school.code));
+    if (idx !== -1) {
+      this.data.schools[idx] = { ...this.data.schools[idx], ...school };
+    } else {
+      this.data.schools.push(school);
+    }
+    this.writeToDisk();
+    return school;
   }
 
   updateUser(id: string, updates: Partial<User>): User | undefined {
@@ -1147,6 +1205,23 @@ class Database {
     if (idx === -1) return undefined;
     this.data.users[idx] = { ...this.data.users[idx], ...updates, updatedAt: new Date().toISOString() };
     this.writeToDisk();
+    const u = this.data.users[idx];
+    this.sync('users', {
+      id: u.id,
+      full_name: u.fullName,
+      email: u.email,
+      role: u.role,
+      school_id: u.schoolId,
+      account_status: u.accountStatus,
+      phone: u.phone,
+      password_hash: u.passwordHash,
+      must_change_password: !!u.mustChangePassword,
+      title_or_branch: u.titleOrBranch,
+      canteen_unit: u.canteenUnit,
+      created_by_manager_id: u.createdByManagerId,
+      created_at: u.createdAt,
+      updated_at: u.updatedAt,
+    });
     return this.data.users[idx];
   }
 
@@ -1155,12 +1230,175 @@ class Database {
     return this.data.schools;
   }
 
+  getSchoolById(id: string): School | undefined {
+    return this.data.schools.find(s => s.id === id);
+  }
+
+  getSchoolByCode(code: string): School | undefined {
+    if (!code) return undefined;
+    const clean = code.trim().toUpperCase();
+    return this.data.schools.find(s => (s.code && s.code.trim().toUpperCase() === clean) || s.id.toUpperCase() === clean);
+  }
+
+  createSchool(payload: { name: string; code: string; address?: string; timezone?: string }): { success: boolean; school?: School; error?: string } {
+    const cleanCode = (payload.code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, error: 'Okul kodu zorunludur.' };
+    }
+    const existing = this.getSchoolByCode(cleanCode);
+    if (existing) {
+      return { success: false, error: `"${cleanCode}" okul kodu zaten "${existing.name}" için kayıtlı.` };
+    }
+
+    const schoolId = `school-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const newSchool: School = {
+      id: schoolId,
+      code: cleanCode,
+      name: payload.name.trim(),
+      address: payload.address?.trim() || '',
+      timezone: payload.timezone || 'Europe/Istanbul',
+      activeStatus: true,
+    };
+
+    this.data.schools.push(newSchool);
+    this.writeToDisk();
+    this.sync('schools', newSchool);
+    return { success: true, school: newSchool };
+  }
+
+  assignSchoolManager(schoolId: string, managerUserId: string): { success: boolean; school?: School; manager?: User; error?: string } {
+    const schoolIdx = this.data.schools.findIndex(s => s.id === schoolId);
+    if (schoolIdx === -1) {
+      return { success: false, error: 'Okul bulunamadı.' };
+    }
+
+    const user = this.getUserById(managerUserId);
+    if (!user) {
+      return { success: false, error: 'Müdür olarak atanacak kullanıcı bulunamadı.' };
+    }
+
+    // Single active manager constraint: deactivate previous active manager of this school if different
+    const previousManagers = this.data.users.filter(u => u.schoolId === schoolId && u.role === 'manager' && u.id !== managerUserId && u.accountStatus === 'active');
+    for (const prev of previousManagers) {
+      prev.accountStatus = 'suspended';
+      this.sync('users', prev);
+    }
+
+    // Ensure manager has manager role and belongs to this school
+    user.role = 'manager';
+    user.schoolId = schoolId;
+    user.accountStatus = 'active';
+    this.sync('users', user);
+
+    // Update or create manager profile
+    const mpIdx = this.data.managerProfiles.findIndex(m => m.authUserId === user.id);
+    if (mpIdx >= 0) {
+      this.data.managerProfiles[mpIdx].schoolId = schoolId;
+      this.data.managerProfiles[mpIdx].accountStatus = 'active';
+      this.sync('manager_profiles', this.data.managerProfiles[mpIdx]);
+    } else {
+      const newMp: ManagerProfile = {
+        id: `mp-${Date.now()}`,
+        schoolId,
+        authUserId: user.id,
+        fullName: user.fullName,
+        accountStatus: 'active',
+        createdAt: new Date().toISOString(),
+      };
+      this.data.managerProfiles.push(newMp);
+      this.sync('manager_profiles', newMp);
+    }
+
+    this.data.schools[schoolIdx].managerUserId = user.id;
+    this.writeToDisk();
+    this.sync('schools', this.data.schools[schoolIdx]);
+
+    return { success: true, school: this.data.schools[schoolIdx], manager: user };
+  }
+
+  getSchoolsSummary() {
+    return this.data.schools.map(school => {
+      const students = this.data.students.filter(s => s.schoolId === school.id);
+      const teachers = this.data.users.filter(u => u.schoolId === school.id && u.role === 'teacher');
+      const canteens = this.data.users.filter(u => u.schoolId === school.id && u.role === 'canteen');
+      const manager = school.managerUserId
+        ? this.getUserById(school.managerUserId)
+        : this.data.users.find(u => u.schoolId === school.id && u.role === 'manager');
+      const orders = this.data.orders.filter(o => o.schoolId === school.id);
+      const totalOrderRevenue = orders.reduce((sum, o) => sum + (o.paymentStatus === 'paid' ? o.totalAmount : 0), 0);
+      const schoolDonations = this.data.donations.filter(d => d.schoolId === school.id && d.paymentStatus === 'paid');
+      const totalDonations = schoolDonations.reduce((sum, d) => sum + d.totalAmount, 0);
+      const activeNeeds = this.data.studentNeeds.filter(n => n.schoolId === school.id && n.status === 'active');
+
+      return {
+        id: school.id,
+        code: school.code || '',
+        name: school.name,
+        address: school.address,
+        activeStatus: school.activeStatus,
+        manager: manager ? { id: manager.id, fullName: manager.fullName, email: manager.email } : null,
+        counts: {
+          students: students.length,
+          teachers: teachers.length,
+          canteens: canteens.length,
+          orders: orders.length,
+          activeNeeds: activeNeeds.length,
+        },
+        financials: {
+          totalOrderRevenue,
+          totalDonations,
+        },
+      };
+    });
+  }
+
   updateSchool(id: string, updates: Partial<School>): School | undefined {
     const idx = this.data.schools.findIndex(s => s.id === id);
     if (idx === -1) return undefined;
     this.data.schools[idx] = { ...this.data.schools[idx], ...updates };
     this.writeToDisk();
+    this.sync('schools', this.data.schools[idx]);
     return this.data.schools[idx];
+  }
+
+  deleteSchool(id: string, hard: boolean = false): { success: boolean; school?: School; error?: string } {
+    const idx = this.data.schools.findIndex(s => s.id === id);
+    if (idx === -1) return { success: false, error: 'Okul bulunamadı.' };
+
+    const school = this.data.schools[idx];
+    const now = new Date().toISOString();
+
+    // Suspend users associated with this school
+    this.data.users.forEach(u => {
+      if (u.schoolId === id) {
+        u.accountStatus = 'suspended';
+        u.updatedAt = now;
+        this.sync('users', u);
+      }
+    });
+
+    if (hard) {
+      // Check if financial orders or donations exist
+      const hasOrders = this.data.orders.some(o => o.schoolId === id);
+      const hasDonations = this.data.donations.some(d => d.schoolId === id);
+      if (hasOrders || hasDonations) {
+        return {
+          success: false,
+          error: 'Bu okula ait geçmiş sipariş veya mali ödeme kayıtları bulunduğu için kalıcı silinemez. Güvenlik ve denetim amacıyla okul arşive alındı.',
+        };
+      }
+      this.data.schools.splice(idx, 1);
+      this.deleteSync('schools', id);
+    } else {
+      // Soft-delete / Archive
+      school.activeStatus = false;
+      school.isArchived = true;
+      school.archivedAt = now;
+      this.sync('schools', school);
+    }
+
+    this.writeToDisk();
+    return { success: true, school };
   }
 
   // --- Breaks ---
@@ -1171,6 +1409,7 @@ class Database {
   createBreak(breakTime: BreakTime): BreakTime {
     this.data.breaks.push(breakTime);
     this.writeToDisk();
+    this.sync('breaks', breakTime);
     return breakTime;
   }
 
@@ -1179,6 +1418,7 @@ class Database {
     if (idx === -1) return undefined;
     this.data.breaks[idx] = { ...this.data.breaks[idx], ...updates };
     this.writeToDisk();
+    this.sync('breaks', this.data.breaks[idx]);
     return this.data.breaks[idx];
   }
 
@@ -1187,6 +1427,7 @@ class Database {
     if (idx === -1) return false;
     this.data.breaks.splice(idx, 1);
     this.writeToDisk();
+    this.deleteSync('breaks', id);
     return true;
   }
 
@@ -1198,6 +1439,7 @@ class Database {
   createCategory(category: Category): Category {
     this.data.categories.push(category);
     this.writeToDisk();
+    this.sync('categories', category);
     return category;
   }
 
@@ -1206,6 +1448,7 @@ class Database {
     if (idx === -1) return undefined;
     this.data.categories[idx] = { ...this.data.categories[idx], ...updates };
     this.writeToDisk();
+    this.sync('categories', this.data.categories[idx]);
     return this.data.categories[idx];
   }
 
@@ -1215,6 +1458,7 @@ class Database {
     // Soft delete category
     this.data.categories[idx].activeStatus = false;
     this.writeToDisk();
+    this.sync('categories', this.data.categories[idx]);
     return true;
   }
 
@@ -1230,6 +1474,16 @@ class Database {
   createStudent(student: Student): Student {
     this.data.students.push(student);
     this.writeToDisk();
+    this.sync('students', {
+      id: student.id,
+      parent_user_id: student.parentUserId,
+      school_id: student.schoolId,
+      full_name: student.fullName,
+      grade: student.grade,
+      classroom: student.classroom,
+      active_status: student.activeStatus,
+      created_at: student.createdAt,
+    });
     return student;
   }
 
@@ -1238,6 +1492,17 @@ class Database {
     if (idx === -1) return undefined;
     this.data.students[idx] = { ...this.data.students[idx], ...updates };
     this.writeToDisk();
+    const s = this.data.students[idx];
+    this.sync('students', {
+      id: s.id,
+      parent_user_id: s.parentUserId,
+      school_id: s.schoolId,
+      full_name: s.fullName,
+      grade: s.grade,
+      classroom: s.classroom,
+      active_status: s.activeStatus,
+      created_at: s.createdAt,
+    });
     return this.data.students[idx];
   }
 
@@ -1265,6 +1530,21 @@ class Database {
   createProduct(product: Product): Product {
     this.data.products.push(product);
     this.writeToDisk();
+    this.sync('products', {
+      id: product.id,
+      school_id: product.schoolId,
+      category_id: product.categoryId,
+      name: product.name,
+      description: product.description,
+      product_type: product.productType,
+      price: product.price,
+      stock_quantity: product.stockQuantity,
+      image_url: product.imageUrl,
+      allergens: product.allergens,
+      active_status: product.activeStatus,
+      created_at: product.createdAt,
+      updated_at: product.updatedAt,
+    });
     return product;
   }
 
@@ -1273,6 +1553,22 @@ class Database {
     if (idx === -1) return undefined;
     this.data.products[idx] = { ...this.data.products[idx], ...updates, updatedAt: new Date().toISOString() };
     this.writeToDisk();
+    const p = this.data.products[idx];
+    this.sync('products', {
+      id: p.id,
+      school_id: p.schoolId,
+      category_id: p.categoryId,
+      name: p.name,
+      description: p.description,
+      product_type: p.productType,
+      price: p.price,
+      stock_quantity: p.stockQuantity,
+      image_url: p.imageUrl,
+      allergens: p.allergens,
+      active_status: p.activeStatus,
+      created_at: p.createdAt,
+      updated_at: p.updatedAt,
+    });
     return this.data.products[idx];
   }
 
@@ -1294,6 +1590,8 @@ class Database {
     breakId?: string;
     orderStatus?: string;
     search?: string;
+    includeArchived?: boolean;
+    onlyArchived?: boolean;
   }): Order[] {
     let list = this.data.orders;
     if (filters?.schoolId) list = list.filter(o => o.schoolId === filters.schoolId);
@@ -1302,6 +1600,12 @@ class Database {
     if (filters?.breakId) list = list.filter(o => o.breakId === filters.breakId);
     if (filters?.orderStatus && filters.orderStatus !== 'all') {
       list = list.filter(o => o.orderStatus === filters.orderStatus);
+    }
+    if (filters?.onlyArchived) {
+      list = list.filter(o => o.isArchived === true);
+    } else if (!filters?.includeArchived) {
+      // By default omit archived completed orders from the active live board
+      list = list.filter(o => !o.isArchived);
     }
     if (filters?.search) {
       const q = filters.search.toLowerCase();
@@ -1314,6 +1618,25 @@ class Database {
     }
     // Sort newest first
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  archiveCompletedOrders(schoolId?: string): { archivedCount: number } {
+    let count = 0;
+    const now = new Date().toISOString();
+    for (const order of this.data.orders) {
+      if (schoolId && order.schoolId !== schoolId) continue;
+      // Archive delivered and cancelled orders from the active daily operational board
+      if ((order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') && !order.isArchived) {
+        order.isArchived = true;
+        order.archivedAt = now;
+        count++;
+        this.sync('orders', order);
+      }
+    }
+    if (count > 0) {
+      this.writeToDisk();
+    }
+    return { archivedCount: count };
   }
 
   getOrderById(id: string): Order | undefined {
@@ -1344,6 +1667,30 @@ class Database {
 
     this.data.orders.unshift(order);
     this.writeToDisk();
+    this.sync('orders', {
+      id: order.id,
+      order_number: order.orderNumber,
+      parent_user_id: order.parentUserId,
+      student_id: order.studentId,
+      student_name_snapshot: order.studentNameSnapshot,
+      student_class_snapshot: order.studentClassSnapshot,
+      school_id: order.schoolId,
+      order_date: order.orderDate,
+      break_id: order.breakId,
+      break_name_snapshot: order.breakNameSnapshot,
+      order_type: order.orderType,
+      payment_status: order.paymentStatus,
+      order_status: order.orderStatus,
+      subtotal: order.subtotal,
+      total_amount: order.totalAmount,
+      note: order.note,
+      delivery_code: order.deliveryCode,
+      is_verified_delivery: order.isVerifiedDelivery,
+      cancelled_reason: order.cancelledReason,
+      items: order.items,
+      created_at: order.createdAt,
+      updated_at: order.updatedAt,
+    });
     return { success: true, order };
   }
 
@@ -1567,6 +1914,23 @@ class Database {
     };
     this.data.notifications.unshift(item);
     this.writeToDisk();
+    this.sync('notifications', {
+      id: item.id,
+      user_id: item.userId,
+      title: item.title,
+      message: item.message,
+      type: item.type,
+      read: item.read,
+      link_url: item.linkUrl,
+      order_id: item.orderId,
+      allocation_id: item.allocationId,
+      student_need_id: item.studentNeedId,
+      support_type: item.supportType,
+      items_summary: item.itemsSummary,
+      delivery_event_id: item.deliveryEventId,
+      student_name_snapshot: item.studentNameSnapshot,
+      created_at: item.createdAt,
+    });
     return item;
   }
 
@@ -1579,6 +1943,7 @@ class Database {
     if (it) {
       it.read = true;
       this.writeToDisk();
+      this.sync('notifications', { id: it.id, read: true });
     }
   }
 
@@ -1736,10 +2101,11 @@ class Database {
     branch?: string;
     tempPassword?: string;
     createdByManagerId?: string;
+    userId?: string;
   }): { user: User; profile: TeacherProfile; tempPassword: string } {
     const now = new Date().toISOString();
     const tempPass = data.tempPassword || Math.random().toString(36).substring(2, 8) + 'KC!';
-    const userId = `user-teacher-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const userId = data.userId || crypto.randomUUID();
 
     const user: User = {
       id: userId,
@@ -1791,6 +2157,34 @@ class Database {
     return this.data.teacherProfiles[idx];
   }
 
+  deleteTeacher(id: string, schoolId: string): { success: boolean; teacher?: TeacherProfile; error?: string } {
+    const profileIdx = this.data.teacherProfiles.findIndex(t => t.id === id);
+    if (profileIdx === -1) return { success: false, error: 'Öğretmen profili bulunamadı.' };
+    const teacher = this.data.teacherProfiles[profileIdx];
+    if (teacher.schoolId !== schoolId) {
+      return { success: false, error: 'Farklı bir okulun öğretmenini silemezsiniz.' };
+    }
+
+    const now = new Date().toISOString();
+    teacher.accountStatus = 'suspended';
+    teacher.isDeleted = true;
+    teacher.updatedAt = now;
+
+    // Suspend user core account
+    const user = this.data.users.find(u => u.id === teacher.authUserId);
+    if (user) {
+      user.accountStatus = 'suspended';
+      user.updatedAt = now;
+      this.sync('users', user);
+    }
+
+    this.data.teacherProfiles.splice(profileIdx, 1);
+    this.deleteSync('teacher_profiles', id);
+    this.writeToDisk();
+
+    return { success: true, teacher };
+  }
+
   getCanteenProfiles(schoolId?: string): CanteenProfile[] {
     return schoolId
       ? this.data.canteenProfiles.filter(c => c.schoolId === schoolId)
@@ -1804,10 +2198,11 @@ class Database {
     canteenUnit?: string;
     tempPassword?: string;
     createdByManagerId?: string;
+    userId?: string;
   }): { user: User; profile: CanteenProfile; tempPassword: string } {
     const now = new Date().toISOString();
     const tempPass = data.tempPassword || Math.random().toString(36).substring(2, 8) + 'KC!';
-    const userId = `user-canteen-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const userId = data.userId || crypto.randomUUID();
 
     const user: User = {
       id: userId,
@@ -1856,6 +2251,33 @@ class Database {
     }
     this.writeToDisk();
     return this.data.canteenProfiles[idx];
+  }
+
+  deleteCanteenProfile(id: string, schoolId: string): { success: boolean; canteen?: CanteenProfile; error?: string } {
+    const profileIdx = this.data.canteenProfiles.findIndex(c => c.id === id);
+    if (profileIdx === -1) return { success: false, error: 'Kantinci profili bulunamadı.' };
+    const canteen = this.data.canteenProfiles[profileIdx];
+    if (canteen.schoolId !== schoolId) {
+      return { success: false, error: 'Farklı bir okulun kantincisini silemezsiniz.' };
+    }
+
+    const now = new Date().toISOString();
+    canteen.accountStatus = 'suspended';
+    canteen.isDeleted = true;
+    canteen.updatedAt = now;
+
+    const user = this.data.users.find(u => u.id === canteen.authUserId);
+    if (user) {
+      user.accountStatus = 'suspended';
+      user.updatedAt = now;
+      this.sync('users', user);
+    }
+
+    this.data.canteenProfiles.splice(profileIdx, 1);
+    this.deleteSync('canteen_profiles', id);
+    this.writeToDisk();
+
+    return { success: true, canteen };
   }
 
   setTempPassword(userId: string, tempPass: string): boolean {
@@ -2031,6 +2453,30 @@ class Database {
     }
 
     this.writeToDisk();
+    return { success: true };
+  }
+
+  deleteStudentNeed(needId: string, schoolId: string): { success: boolean; error?: string } {
+    const idx = this.data.studentNeeds.findIndex(n => n.id === needId);
+    if (idx === -1) return { success: false, error: 'İhtiyaç kaydı bulunamadı.' };
+    const need = this.data.studentNeeds[idx];
+    if (need.schoolId !== schoolId) {
+      return { success: false, error: 'Farklı bir okulun öğrenci ihtiyaç kaydını silemezsiniz.' };
+    }
+
+    const codeRecord = this.data.studentNeedCodes.find(c => c.studentNeedId === needId && c.needCode === need.needCodeReference);
+    if (codeRecord) {
+      codeRecord.codeStatus = 'revoked';
+      codeRecord.revokedAt = new Date().toISOString();
+      this.sync('student_need_codes', codeRecord);
+    }
+
+    need.status = 'cancelled';
+    need.updatedAt = new Date().toISOString();
+    this.data.studentNeeds.splice(idx, 1);
+    this.deleteSync('student_needs', needId);
+    this.writeToDisk();
+
     return { success: true };
   }
 
@@ -2477,6 +2923,42 @@ class Database {
     }
 
     this.writeToDisk();
+    this.sync('support_allocations', {
+      id: alloc.id,
+      school_id: alloc.schoolId,
+      student_need_id: alloc.studentNeedId,
+      student_name_snapshot: alloc.studentNameSnapshot,
+      student_class_snapshot: alloc.studentClassSnapshot,
+      allocation_number: alloc.allocationNumber,
+      need_code_reference: alloc.needCodeReference,
+      support_type: alloc.supportType,
+      source_type: alloc.sourceType,
+      source_reference_id: alloc.sourceReferenceId,
+      assigned_by_teacher_id: alloc.assignedByTeacherId,
+      assigned_by_teacher_name: alloc.assignedByTeacherName,
+      status: alloc.status,
+      justification_note: alloc.justificationNote,
+      valid_until: alloc.validUntil,
+      delivered_at: alloc.deliveredAt,
+      delivered_by_canteen_user_id: alloc.deliveredByCanteenUserId,
+      delivered_by_canteen_name: alloc.deliveredByCanteenName,
+      items: alloc.items,
+      created_at: alloc.createdAt,
+      updated_at: alloc.updatedAt,
+    });
+    this.sync('support_deliveries', {
+      id: deliveryRecord.id,
+      allocation_id: deliveryRecord.allocationId,
+      school_id: deliveryRecord.schoolId,
+      delivered_by_canteen_user_id: deliveryRecord.deliveredByCanteenUserId,
+      delivered_by_canteen_name: deliveryRecord.deliveredByCanteenName,
+      verification_reference: deliveryRecord.verificationReference,
+      delivery_status: deliveryRecord.deliveryStatus,
+      quantity_delivered: deliveryRecord.quantityDelivered,
+      notes: deliveryRecord.notes,
+      delivered_at: deliveryRecord.deliveredAt,
+      created_at: deliveryRecord.createdAt,
+    });
     return {
       success: true,
       message: 'Ürünler öğrenciye başarıyla teslim edildi ve danışman öğretmene bildirim iletildi.',

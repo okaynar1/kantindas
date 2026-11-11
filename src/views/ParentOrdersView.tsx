@@ -18,7 +18,7 @@ import { api } from '../services/api.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
 export const ParentOrdersView: React.FC = () => {
-  const { user, refreshUserData } = useAuth();
+  const { user, school, refreshUserData } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
@@ -366,7 +366,7 @@ export const ParentOrdersView: React.FC = () => {
 
             <div className="p-5 space-y-4 text-xs">
               <div className="text-center py-2 border-b border-dashed border-stone-200 space-y-1">
-                <p className="font-bold text-stone-900 text-sm">Atatürk İlkokulu ve Ortaokulu Kantini</p>
+                <p className="font-bold text-stone-900 text-sm">{school?.name || 'Okul'} Kantini</p>
                 <p className="text-stone-500 text-[11px]">Akıllı Teneffüs Sipariş Belgesi</p>
                 <div className="my-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200">
                   <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">KANTİN TESLİM KODU</span>
